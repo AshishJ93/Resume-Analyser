@@ -43,10 +43,22 @@ def parse_model_json(raw: str) -> dict:
     return json.loads(raw)
 
 
+def get_xai_api_key() -> str | None:
+    key = os.getenv("XAI_API_KEY") or os.getenv("GROK_API_KEY")
+    if key:
+        return key
+    try:
+        return st.secrets.get("XAI_API_KEY") or st.secrets.get("GROK_API_KEY")
+    except Exception:
+        return None
+
+
 def analyze_resume(resume_text: str, target_role: str, job_description: str) -> dict:
-    api_key = os.getenv("XAI_API_KEY") or os.getenv("GROK_API_KEY")
+    api_key = get_xai_api_key()
     if not api_key:
-        raise ValueError("XAI_API_KEY is not set. Add your Grok key to the .env file.")
+        raise ValueError(
+            "XAI_API_KEY is not set. Add it to your local .env or Streamlit Secrets."
+        )
 
     client = OpenAI(
         api_key=api_key,
