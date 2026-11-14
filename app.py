@@ -291,56 +291,136 @@ def write_cover_letter(
     return str(data.get("cover_letter") or "").strip()
 
 
+PACK_CHECKLIST = [
+    (1, "ATS score and clear verdict"),
+    (2, "Missing keywords from the JD"),
+    (3, "Updated resume with those keywords"),
+    (4, "Five professional PDF templates"),
+    (5, "Tailored cover letter"),
+    (6, "India Tier-1/2/3 salary bands"),
+]
+
+RESULT_NAV = [
+    ("ats", "ATS score", "Match score & verdict"),
+    ("keywords", "Keywords", "Gaps woven into resume"),
+    ("resume", "Updated resume", "Full content kept"),
+    ("templates", "Templates", "5 PDF layouts"),
+    ("cover", "Cover letter", "Ready to send"),
+    ("salary", "India salary", "Tier-1 / 2 / 3 LPA"),
+]
+
+
+def render_receive_checklist(
+    done_ids: set[int] | None = None,
+    active_id: int | None = None,
+    *,
+    title: str = "You will receive",
+    subtitle: str | None = None,
+) -> str:
+    done_ids = done_ids or set()
+    rows = []
+    for num, label in PACK_CHECKLIST:
+        state = "pending"
+        mark = str(num)
+        if num in done_ids:
+            state = "done"
+            mark = "✓"
+        elif active_id == num:
+            state = "active"
+            mark = "…"
+        rows.append(
+            f'<div class="check-row {state}">'
+            f'<span class="check-mark">{mark}</span>'
+            f"<span>{html.escape(label)}</span>"
+            f"</div>"
+        )
+    sub = (
+        f'<p class="check-sub">{html.escape(subtitle)}</p>'
+        if subtitle
+        else ""
+    )
+    return (
+        f'<div class="check-board">'
+        f'<p class="section-label">{html.escape(title)}</p>'
+        f"{sub}"
+        f'<div class="check-list">{"".join(rows)}</div>'
+        f"</div>"
+    )
+
+
+def paint_checklist(
+    slot,
+    done_ids: set[int],
+    active_id: int | None = None,
+    *,
+    title: str,
+    subtitle: str | None = None,
+) -> None:
+    with slot.container():
+        render_html(
+            render_receive_checklist(
+                done_ids, active_id, title=title, subtitle=subtitle
+            )
+        )
+
+
 def run_analysis_pipeline(
     resume_text: str, target_role: str, job_description: str
 ) -> dict:
-    """Multi-step analysis with a visible timeline in the Streamlit UI."""
+    """Multi-step analysis with a live checklist matching the deliverables."""
     result: dict = {}
-    with st.status("Preparing your application pack…", expanded=True) as status:
-        st.write("**1 · Scoring ATS fit** against your target role and JD")
-        fit = analyze_fit_and_market(resume_text, target_role, job_description)
-        result.update(fit)
-        st.write(
-            f"ATS score ready: **{fit.get('ats_score', '—')}**. "
-            f"Found **{len(fit.get('missing_keywords') or [])}** keyword gaps."
-        )
+    done: set[int] = set()
+    slot = st.empty()
 
-        st.write("**2 · Mapping India salary bands** (Tier-1 / Tier-2 / Tier-3 cities)")
-        if result.get("india_salary"):
-            tier1 = (result["india_salary"].get("tier1") or {}).get("average_lpa", "—")
-            st.write(f"Tier-1 average band: **{tier1} LPA** (indicative)")
-        else:
-            st.write("Salary bands attached to results.")
+    paint_checklist(
+        slot,
+        done,
+        active_id=1,
+        title="Preparing your pack",
+        subtitle="Watch each deliverable check off as it finishes.",
+    )
 
-        st.write(
-            "**3 · Updating your full resume** — keeping all roles & sections, "
-            "weaving in missing keywords (not truncating)"
-        )
-        updated = rewrite_full_resume(
-            resume_text,
-            target_role,
-            job_description,
-            fit.get("missing_keywords") or [],
-        )
-        result["updated_resume"] = updated
-        roles = len((updated or {}).get("experience") or [])
-        st.write(f"Resume draft ready with **{roles}** experience entries preserved/updated.")
+    fit = analyze_fit_and_market(resume_text, target_role, job_description)
+    result.update(fit)
+    done.update({1, 2, 6})
+    paint_checklist(
+        slot,
+        done,
+        active_id=3,
+        title="Preparing your pack",
+        subtitle=(
+            f"ATS {fit.get('ats_score', '—')} ready · "
+            f"{len(fit.get('missing_keywords') or [])} keyword gaps · salary bands ready"
+        ),
+    )
 
-        st.write("**4 · Drafting your cover letter**")
-        result["cover_letter"] = write_cover_letter(
-            resume_text, target_role, job_description, updated
-        )
-        st.write("Cover letter ready.")
+    updated = rewrite_full_resume(
+        resume_text,
+        target_role,
+        job_description,
+        fit.get("missing_keywords") or [],
+    )
+    result["updated_resume"] = updated
+    done.update({3, 4})
+    roles = len((updated or {}).get("experience") or [])
+    paint_checklist(
+        slot,
+        done,
+        active_id=5,
+        title="Preparing your pack",
+        subtitle=f"Full resume updated ({roles} roles kept) · templates unlocked",
+    )
 
-        st.write(
-            "**Done.** Next: open each results tab — "
-            "ATS score → Missing keywords → Updated resume → Templates → Cover letter → India salary."
-        )
-        status.update(
-            label="Pack ready — explore the tabs below",
-            state="complete",
-            expanded=True,
-        )
+    result["cover_letter"] = write_cover_letter(
+        resume_text, target_role, job_description, updated
+    )
+    done.add(5)
+    paint_checklist(
+        slot,
+        done,
+        title="Pack ready",
+        subtitle="All 6 deliverables are ready — open them in Results below.",
+    )
     return result
 
 
@@ -411,17 +491,18 @@ def inject_styles() -> None:
 
 .stApp {
   background:
-    radial-gradient(980px 420px at 12% -8%, rgba(47,111,106,0.12), transparent 55%),
-    radial-gradient(820px 380px at 100% 0%, rgba(58,125,140,0.10), transparent 50%),
-    linear-gradient(180deg, #eef2f4 0%, #f7f8fa 48%, #f2f4f6 100%);
+    radial-gradient(1100px 520px at 8% -12%, rgba(47,111,106,0.16), transparent 58%),
+    radial-gradient(900px 480px at 100% -4%, rgba(58,125,140,0.12), transparent 52%),
+    radial-gradient(700px 380px at 50% 110%, rgba(20,24,31,0.04), transparent 55%),
+    linear-gradient(180deg, #ebf0f2 0%, #f6f8f9 46%, #eef1f3 100%);
   color: var(--ink);
   font-family: "Manrope", sans-serif;
 }
 
 .block-container {
-  max-width: 1080px;
-  padding-top: 1.35rem;
-  padding-bottom: 3.2rem;
+  max-width: 1120px;
+  padding-top: 1.5rem;
+  padding-bottom: 3.6rem;
 }
 
 [data-testid="stHeader"] {
@@ -765,10 +846,142 @@ def inject_styles() -> None:
   animation: spin 0.8s linear infinite;
 }
 
-.outcome-list {
-  margin-top: 1rem;
+.check-board {
+  margin-top: 0.35rem;
+  animation: rise 0.55s ease both;
+}
+.check-sub {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+.check-list {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.48rem;
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.78rem 0.9rem;
+  border-radius: 12px;
+  background: #eef3f1;
+  color: #1c2422;
+  font-size: 0.94rem;
+  font-weight: 600;
+  line-height: 1.35;
+  border: 1px solid transparent;
+  box-shadow: inset 3px 0 0 #c5d5d0;
+  transition: background 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+}
+.check-row.pending {
+  opacity: 0.78;
+}
+.check-row.active {
+  background: #e4efec;
+  border-color: #b7d4d1;
+  box-shadow: inset 3px 0 0 var(--accent);
+  transform: translateX(2px);
+}
+.check-row.done {
+  background: #e7f2f0;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.check-mark {
+  width: 1.35rem;
+  flex-shrink: 0;
+  text-align: center;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  color: #334843;
+}
+.check-row.done .check-mark {
+  color: var(--accent);
+}
+.check-row.active .check-mark {
+  color: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.results-hero {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 1.2rem;
+  align-items: center;
+  padding: 1.15rem 1.25rem;
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.92), rgba(231,242,241,0.88));
+  border: 1px solid rgba(207,227,225,0.95);
+  box-shadow: var(--shadow);
+  margin-bottom: 1rem;
+  animation: rise 0.6s ease both;
+}
+.results-hero h2 {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.45rem;
+  letter-spacing: -0.03em;
+}
+.results-hero p {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+.pack-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.7rem;
+  margin: 0 0 1rem;
+}
+.pack-card {
+  border-radius: 16px;
+  padding: 0.95rem 1rem;
+  background: rgba(255,255,255,0.86);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 24px rgba(20,24,31,0.04);
+  min-height: 96px;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.pack-card:hover {
+  transform: translateY(-2px);
+  border-color: #b7d4d1;
+}
+.pack-card .idx {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 0.35rem;
+}
+.pack-card h4 {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.02rem;
+  letter-spacing: -0.02em;
+}
+.pack-card p {
+  margin: 0.28rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+div[data-testid="stRadio"][aria-label="Open deliverable"] label,
+div.st-key-result-nav div[data-testid="stRadio"] label {
+  background: rgba(255,255,255,0.85) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 999px !important;
+  padding: 0.45rem 0.85rem !important;
+  margin-right: 0.35rem !important;
+  margin-bottom: 0.35rem !important;
+}
+div.st-key-result-nav div[data-testid="stRadio"] label p {
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -895,9 +1108,8 @@ button[data-testid="stBaseButton-primary"]:hover {
 
 @media (max-width: 900px) {
   .step-rail { grid-template-columns: 1fr; }
-  .score-wrap { grid-template-columns: 1fr; justify-items: center; text-align: center; }
-  .split-two { grid-template-columns: 1fr; }
-  .salary-grid { grid-template-columns: 1fr; }
+  .score-wrap, .results-hero { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .split-two, .salary-grid, .pack-grid { grid-template-columns: 1fr; }
 }
 </style>
 """
@@ -1062,6 +1274,7 @@ for key, default in {
     "selected_template": "modern",
     "show_done_guide": False,
     "analyzed_role": "",
+    "result_view": "ats",
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -1071,11 +1284,11 @@ inject_styles()
 render_html(
     """
 <section class="brand-hero">
-  <div class="brand-kicker">ATS · Keywords · Templates</div>
+  <div class="brand-kicker">Built for Indian job seekers</div>
   <h1 class="brand-mark">Resume <span>Analyser</span></h1>
   <p class="brand-sub">
-    Drop a LinkedIn or Naukri screenshot, score your ATS fit, fill the keyword gaps,
-    and download a rewritten resume with a cover letter — in one pass.
+    Paste a Naukri or LinkedIn screenshot. Walk out with an ATS score, keyword-fit resume,
+    five PDF templates, a cover letter, and India city-tier salary bands.
   </p>
 </section>
 <div class="step-rail">
@@ -1089,7 +1302,7 @@ render_html(
   </div>
   <div class="step-pill">
     <div class="step-num">3</div>
-    <div class="step-copy"><strong>Get your pack</strong><span>Score, rewrite, templates, letter</span></div>
+    <div class="step-copy"><strong>Collect your pack</strong><span>Six deliverables, checked live</span></div>
   </div>
 </div>
 """
@@ -1196,20 +1409,7 @@ with meta_col:
             label_visibility="collapsed",
         )
         analyze = st.button("Analyse resume", type="primary", use_container_width=True)
-
-        render_html(
-            """
-            <div class="outcome-list">
-              <p class="section-label">You will receive</p>
-              <div class="insight-row strength"><span>1</span><span>ATS score and clear verdict</span></div>
-              <div class="insight-row strength"><span>2</span><span>Missing keywords from the JD</span></div>
-              <div class="insight-row strength"><span>3</span><span>Updated resume with those keywords</span></div>
-              <div class="insight-row strength"><span>4</span><span>Five professional PDF templates</span></div>
-              <div class="insight-row strength"><span>5</span><span>Tailored cover letter</span></div>
-              <div class="insight-row strength"><span>6</span><span>India Tier-1/2/3 salary bands</span></div>
-            </div>
-            """
-        )
+        render_html(render_receive_checklist(title="You will receive"))
 
 if analyze:
     if not target_role.strip():
@@ -1247,7 +1447,10 @@ if analyze:
             st.error(f"Could not read input: {exc}")
 
 st.write("")
-render_html('<p class="section-label">Step 3 · Results</p>')
+render_html(
+    '<p class="section-label">Step 3 · Results</p>'
+    '<p class="panel-title" style="margin-bottom:0.85rem;">Your application pack</p>'
+)
 
 pending = st.session_state.pending_analysis
 if pending:
@@ -1260,6 +1463,7 @@ if pending:
         st.session_state.analysis_error = None
         st.session_state.show_done_guide = True
         st.session_state.analyzed_role = pending["target_role"]
+        st.session_state.result_view = "ats"
     except Exception as exc:
         st.session_state.analysis = None
         st.session_state.analysis_error = str(exc)
@@ -1280,48 +1484,62 @@ if analysis:
     cover_letter = str(analysis.get("cover_letter") or "").strip()
     missing = analysis.get("missing_keywords") or []
     target_for_salary = st.session_state.get("analyzed_role") or ""
-
-    if st.session_state.get("show_done_guide", True):
-        render_html(
-            f"""
-            <div class="done-guide">
-              <strong>Your pack is ready</strong>
-              <p>Everything below is prepared for you. Work through the tabs in this order:</p>
-              <ol>
-                <li><b>ATS score</b> — see your match and what to improve</li>
-                <li><b>Missing keywords</b> — terms we wove into your resume</li>
-                <li><b>Updated resume</b> — full content kept, keywords added (not trimmed)</li>
-                <li><b>Templates</b> — pick a layout and download the PDF</li>
-                <li><b>Cover letter</b> — download and send with the resume</li>
-                <li><b>India salary</b> — Tier-1 / Tier-2 / Tier-3 package bands</li>
-              </ol>
-            </div>
-            """
-        )
-
-    (
-        tab_score,
-        tab_keywords,
-        tab_resume,
-        tab_templates,
-        tab_cover,
-        tab_salary,
-    ) = st.tabs(
-        [
-            "ATS score",
-            "Missing keywords",
-            "Updated resume",
-            "Templates",
-            "Cover letter",
-            "India salary",
-        ]
+    tier1_avg = html.escape(
+        str(((analysis.get("india_salary") or {}).get("tier1") or {}).get("average_lpa") or "—")
     )
 
-    with tab_score:
+    render_html(
+        f"""
+        <div class="results-hero">
+          <div class="gauge" style="background: conic-gradient({color} 0% {score}%, #e6eaee {score}% 100%);">
+            <div class="gauge-inner">
+              <div class="gauge-score" style="color:{color};">{score}</div>
+              <div class="gauge-caption">ATS</div>
+            </div>
+          </div>
+          <div>
+            <h2>Pack ready · {score_label(score)}</h2>
+            <p>{verdict}</p>
+            <div class="pill" style="color:{color};background:{color}1a;margin-top:0.65rem;">
+              {len(missing)} keywords woven · Tier-1 ~ {tier1_avg} LPA
+            </div>
+          </div>
+        </div>
+        <div class="pack-grid">
+          <div class="pack-card"><div class="idx">01</div><h4>ATS score</h4><p>Verdict, strengths, improvements</p></div>
+          <div class="pack-card"><div class="idx">02</div><h4>Keywords</h4><p>{len(missing)} gaps filled into the rewrite</p></div>
+          <div class="pack-card"><div class="idx">03</div><h4>Updated resume</h4><p>Full history kept, not trimmed</p></div>
+          <div class="pack-card"><div class="idx">04</div><h4>Templates</h4><p>Five professional PDF layouts</p></div>
+          <div class="pack-card"><div class="idx">05</div><h4>Cover letter</h4><p>Tailored and download-ready</p></div>
+          <div class="pack-card"><div class="idx">06</div><h4>India salary</h4><p>Tier-1 / 2 / 3 city bands</p></div>
+        </div>
+        """
+    )
+
+    render_html(render_receive_checklist(done_ids={1, 2, 3, 4, 5, 6}, title="Delivered"))
+
+    with st.container(key="result-nav"):
+        render_html(
+            '<p class="section-label" style="margin-top:1rem;">Open a deliverable</p>'
+        )
+        view_ids = [item[0] for item in RESULT_NAV]
+        labels = {item[0]: item[1] for item in RESULT_NAV}
+        view = st.radio(
+            "Open deliverable",
+            options=view_ids,
+            format_func=lambda key: labels[key],
+            horizontal=True,
+            key="result_view",
+            label_visibility="collapsed",
+        )
+
+    if view == "ats":
         with st.container(key="score-panel"):
             render_html(
                 f"""
-                <div class="score-wrap">
+                <p class="section-label">Deliverable 01</p>
+                <p class="panel-title">ATS score and clear verdict</p>
+                <div class="score-wrap" style="margin-top:0.8rem;">
                   <div class="gauge" style="background: conic-gradient({color} 0% {score}%, #e6eaee {score}% 100%);">
                     <div class="gauge-inner">
                       <div class="gauge-score" style="color:{color};">{score}</div>
@@ -1329,8 +1547,7 @@ if analysis:
                     </div>
                   </div>
                   <div class="score-meta">
-                    <h3>Role match overview</h3>
-                    <div class="pill" style="color:{color};background:{color}1a;">{score_label(score)}</div>
+                    <h3>{score_label(score)}</h3>
                     <p>{verdict}</p>
                   </div>
                 </div>
@@ -1347,25 +1564,25 @@ if analysis:
                 """
             )
 
-    with tab_keywords:
+    elif view == "keywords":
         with st.container(key="keywords-panel"):
             render_html(
                 f"""
-                <p class="section-label">Gaps</p>
-                <p class="panel-title">Keywords to add</p>
-                <p class="hint-line">These were weak or missing versus the role / JD. They are woven into the updated resume without removing your existing content.</p>
+                <p class="section-label">Deliverable 02</p>
+                <p class="panel-title">Missing keywords from the JD</p>
+                <p class="hint-line">These terms were woven into your updated resume without cutting existing content.</p>
                 {render_keywords(missing)}
                 """
             )
 
-    with tab_resume:
+    elif view == "resume":
         preview = format_updated_resume_text(updated)
         with st.container(key="resume-result-panel"):
             render_html(
                 f"""
-                <p class="section-label">Rewrite</p>
-                <p class="panel-title">Full resume · keywords added</p>
-                <p class="hint-line">All original roles and sections are kept and enriched — not truncated. Review, then download text or a PDF template.</p>
+                <p class="section-label">Deliverable 03</p>
+                <p class="panel-title">Updated resume with those keywords</p>
+                <p class="hint-line">Full original history preserved and enriched — not truncated.</p>
                 <div class="resume-preview">{html.escape(preview)}</div>
                 """
             )
@@ -1377,7 +1594,7 @@ if analysis:
                 use_container_width=True,
             )
 
-    with tab_templates:
+    elif view == "templates":
         with st.container(key="templates-panel"):
             cards = "".join(
                 f'<div class="template-card"><h4>{html.escape(t["name"])}</h4>'
@@ -1386,9 +1603,9 @@ if analysis:
             )
             render_html(
                 f"""
-                <p class="section-label">Download</p>
-                <p class="panel-title">Choose a template</p>
-                <p class="hint-line">PDFs use your full updated resume (multi-page if needed). Nothing is cut for length.</p>
+                <p class="section-label">Deliverable 04</p>
+                <p class="panel-title">Five professional PDF templates</p>
+                <p class="hint-line">Pick a layout. PDFs can span multiple pages so nothing is cut for length.</p>
                 <div class="template-grid">{cards}</div>
                 """
             )
@@ -1414,14 +1631,14 @@ if analysis:
             except Exception as exc:
                 st.error(f"Could not build PDF: {exc}")
 
-    with tab_cover:
+    elif view == "cover":
         with st.container(key="cover-panel"):
             if cover_letter:
                 render_html(
                     f"""
-                    <p class="section-label">Outreach</p>
-                    <p class="panel-title">Cover letter</p>
-                    <p class="hint-line">Ready to send with your updated resume.</p>
+                    <p class="section-label">Deliverable 05</p>
+                    <p class="panel-title">Tailored cover letter</p>
+                    <p class="hint-line">Send this with your updated resume.</p>
                     <div class="cover-box">{html.escape(cover_letter)}</div>
                     """
                 )
@@ -1453,10 +1670,11 @@ if analysis:
             else:
                 render_html('<p class="empty-note">No cover letter was returned.</p>')
 
-    with tab_salary:
+    else:
         with st.container(key="salary-panel"):
             render_html(
-                render_salary_block(analysis.get("india_salary"), target_for_salary)
+                '<p class="section-label">Deliverable 06</p>'
+                + render_salary_block(analysis.get("india_salary"), target_for_salary)
             )
 
 elif st.session_state.analysis_error:
@@ -1467,7 +1685,11 @@ else:
             """
             <div class="placeholder">
               <div class="placeholder-mark">◈</div>
-              <p>Your ATS score, keyword gaps, full updated resume, templates, cover letter, and India salary bands will appear here.</p>
+              <p>Run Analyse to build your pack. During buffering, each item on the checklist will tick off live.</p>
             </div>
             """
+            + render_receive_checklist(
+                title="You will receive",
+                subtitle="Same list checks off while we prepare your pack.",
+            )
         )
