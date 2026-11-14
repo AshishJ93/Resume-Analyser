@@ -10,10 +10,24 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pypdf import PdfReader
 
-from paste_image import paste_image
 from pdf_templates import TEMPLATES, build_cover_letter_pdf, build_resume_pdf
 
 load_dotenv()
+
+try:
+    from paste_image import paste_image as _paste_image_component
+
+    def paste_image(label: str = "Paste a screenshot", key: str | None = None):
+        try:
+            return _paste_image_component(label=label, key=key)
+        except Exception:
+            return None
+
+except Exception:
+
+    def paste_image(label: str = "Paste a screenshot", key: str | None = None):
+        return None
+
 
 ANALYSIS_SCHEMA_HINT = {
     "ats_score": 0,
@@ -57,6 +71,14 @@ ANALYSIS_SCHEMA_HINT = {
     },
     "cover_letter": "Full cover letter text with paragraphs separated by newlines",
 }
+
+
+def render_html(content: str) -> None:
+    """Inject HTML safely on Streamlit Cloud (st.html avoids CSS-as-text bugs)."""
+    if hasattr(st, "html"):
+        st.html(content)
+    else:
+        st.markdown(content, unsafe_allow_html=True)
 
 
 def get_xai_api_key() -> str | None:
@@ -200,7 +222,6 @@ def resolve_source_text(
     uploaded_file,
     pasted_payload,
     typed_text: str,
-    label: str,
 ) -> str:
     if mode == "PDF":
         if uploaded_file is None:
@@ -218,371 +239,449 @@ def resolve_source_text(
 
 
 def inject_styles() -> None:
-    st.markdown(
+    render_html(
         """
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-        <style>
-          :root {
-            --ink: #1a1d23;
-            --muted: #5c6570;
-            --line: #e2e6eb;
-            --soft: #f3f5f7;
-            --surface: #ffffff;
-            --accent: #2f6f6a;
-            --accent-2: #3d7f8f;
-            --accent-soft: #e8f2f1;
-            --warn: #9a7040;
-            --bad: #a84848;
-          }
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
-          #MainMenu, footer, header,
-          [data-testid="stHeader"],
-          [data-testid="stToolbar"],
-          [data-testid="stDecoration"],
-          [data-testid="stStatusWidget"] {
-            display: none !important;
-            visibility: hidden !important;
-            height: 0 !important;
-          }
+:root {
+  --ink: #14181f;
+  --muted: #5f6b76;
+  --line: #e4e8ee;
+  --soft: #f4f6f8;
+  --surface: #ffffff;
+  --accent: #2f6f6a;
+  --accent-2: #3a7d8c;
+  --accent-soft: #e7f2f1;
+  --warn: #9a7040;
+  --bad: #a84848;
+  --shadow: 0 18px 40px rgba(20, 24, 31, 0.06);
+}
 
-          html, body, [class*="css"] {
-            font-family: "Manrope", sans-serif;
-          }
+#MainMenu, footer,
+[data-testid="stToolbar"],
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"] {
+  visibility: hidden;
+  height: 0;
+}
 
-          .stApp {
-            background:
-              radial-gradient(1200px 520px at 8% -10%, rgba(47, 111, 106, 0.10), transparent 55%),
-              radial-gradient(900px 480px at 100% 0%, rgba(61, 127, 143, 0.10), transparent 50%),
-              linear-gradient(180deg, #eef2f4 0%, #f7f8fa 42%, #f3f5f7 100%);
-            color: var(--ink);
-          }
+.stApp {
+  background:
+    radial-gradient(980px 420px at 12% -8%, rgba(47,111,106,0.12), transparent 55%),
+    radial-gradient(820px 380px at 100% 0%, rgba(58,125,140,0.10), transparent 50%),
+    linear-gradient(180deg, #eef2f4 0%, #f7f8fa 48%, #f2f4f6 100%);
+  color: var(--ink);
+  font-family: "Manrope", sans-serif;
+}
 
-          .block-container {
-            max-width: 1120px;
-            padding-top: 1.6rem;
-            padding-bottom: 3.5rem;
-          }
+.block-container {
+  max-width: 1080px;
+  padding-top: 1.35rem;
+  padding-bottom: 3.2rem;
+}
 
-          .brand-hero {
-            margin: 0 0 1.5rem;
-            animation: rise 0.7s ease both;
-          }
+[data-testid="stHeader"] {
+  background: transparent;
+}
 
-          .brand-mark {
-            font-family: "Space Grotesk", sans-serif;
-            font-size: clamp(2.2rem, 4vw, 3.1rem);
-            font-weight: 700;
-            letter-spacing: -0.045em;
-            line-height: 1.05;
-            color: var(--ink);
-            margin: 0;
-          }
+.brand-hero {
+  margin: 0.2rem 0 1.35rem;
+  animation: rise 0.65s ease both;
+}
 
-          .brand-mark span {
-            color: var(--accent);
-          }
+.brand-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.7rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.72);
+  border: 1px solid rgba(47,111,106,0.18);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 
-          .brand-sub {
-            margin: 0.7rem 0 0;
-            max-width: 34rem;
-            color: var(--muted);
-            font-size: 1.02rem;
-            line-height: 1.55;
-            animation: rise 0.85s ease both;
-          }
+.brand-mark {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(2.35rem, 4.4vw, 3.35rem);
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  line-height: 1.02;
+  color: var(--ink);
+  margin: 0;
+}
 
-          .section-label {
-            margin: 0 0 0.75rem;
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-            color: var(--accent);
-          }
+.brand-mark span { color: var(--accent); }
 
-          .panel,
-          .st-key-resume-panel,
-          .st-key-jd-panel,
-          .st-key-target-panel,
-          .st-key-resume-result-panel,
-          .st-key-templates-panel,
-          .st-key-cover-panel {
-            background: rgba(255, 255, 255, 0.78);
-            border: 1px solid rgba(226, 230, 235, 0.95);
-            border-radius: 18px;
-            padding: 1.15rem 1.2rem 1.25rem;
-            backdrop-filter: blur(8px);
-            box-shadow: 0 10px 30px rgba(26, 29, 35, 0.04);
-            animation: rise 0.75s ease both;
-          }
+.brand-sub {
+  margin: 0.75rem 0 0;
+  max-width: 36rem;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.55;
+  animation: rise 0.8s ease both;
+}
 
-          .hint-line {
-            margin: 0.15rem 0 0.85rem;
-            color: var(--muted);
-            font-size: 0.86rem;
-          }
+.step-rail {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.65rem;
+  margin: 0 0 1.2rem;
+  animation: rise 0.75s ease both;
+}
 
-          .score-wrap {
-            display: grid;
-            grid-template-columns: 140px 1fr;
-            gap: 1.1rem;
-            align-items: center;
-            padding: 0.35rem 0.1rem 0.5rem;
-          }
+.step-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(228,232,238,0.95);
+  box-shadow: 0 8px 20px rgba(20,24,31,0.03);
+}
 
-          .gauge {
-            width: 124px;
-            height: 124px;
-            border-radius: 50%;
-            display: grid;
-            place-items: center;
-          }
+.step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
 
-          .gauge-inner {
-            width: 94px;
-            height: 94px;
-            border-radius: 50%;
-            background: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            box-shadow: inset 0 0 0 1px #eef1f4;
-          }
+.step-copy strong {
+  display: block;
+  font-size: 0.88rem;
+  color: var(--ink);
+  font-weight: 700;
+}
 
-          .gauge-score {
-            font-family: "Space Grotesk", sans-serif;
-            font-size: 2rem;
-            font-weight: 700;
-            line-height: 1;
-            letter-spacing: -0.04em;
-          }
+.step-copy span {
+  display: block;
+  margin-top: 0.12rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
 
-          .gauge-caption {
-            margin-top: 0.25rem;
-            font-size: 0.68rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: #9aa3ad;
-          }
+.section-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
 
-          .score-meta h3 {
-            margin: 0;
-            font-family: "Space Grotesk", sans-serif;
-            font-size: 1.2rem;
-            letter-spacing: -0.02em;
-          }
+.panel-title {
+  margin: 0 0 0.25rem;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
 
-          .score-meta p {
-            margin: 0.45rem 0 0;
-            color: var(--muted);
-            line-height: 1.5;
-            font-size: 0.95rem;
-          }
+.hint-line {
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
 
-          .pill {
-            display: inline-flex;
-            align-items: center;
-            margin-top: 0.55rem;
-            padding: 0.28rem 0.7rem;
-            border-radius: 999px;
-            font-size: 0.75rem;
-            font-weight: 700;
-          }
+.st-key-resume-panel,
+.st-key-jd-panel,
+.st-key-target-panel,
+.st-key-resume-result-panel,
+.st-key-templates-panel,
+.st-key-cover-panel,
+.st-key-score-panel,
+.st-key-keywords-panel,
+.st-key-empty-panel {
+  background: rgba(255,255,255,0.82);
+  border: 1px solid rgba(228,232,238,0.98);
+  border-radius: 20px;
+  padding: 1.2rem 1.25rem 1.3rem;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  animation: rise 0.7s ease both;
+}
 
-          .chip-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.45rem;
-          }
+.score-wrap {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  gap: 1.15rem;
+  align-items: center;
+}
 
-          .chip {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.38rem 0.75rem;
-            border-radius: 999px;
-            background: var(--accent-soft);
-            color: #215652;
-            border: 1px solid #cfe3e1;
-            font-size: 0.82rem;
-            font-weight: 650;
-          }
+.gauge {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
 
-          .insight-row {
-            display: flex;
-            gap: 0.65rem;
-            padding: 0.7rem 0.8rem;
-            border-radius: 12px;
-            margin-bottom: 0.45rem;
-            background: #f7f8fa;
-            border-left: 3px solid transparent;
-            color: var(--ink);
-            font-size: 0.92rem;
-            line-height: 1.45;
-          }
+.gauge-inner {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 1px #eef1f4;
+}
 
-          .insight-row.strength {
-            background: #eef7f3;
-            border-left-color: #2f6f6a;
-          }
+.gauge-score {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.95rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
 
-          .insight-row.improvement {
-            background: #f8f3eb;
-            border-left-color: #9a7040;
-          }
+.gauge-caption {
+  margin-top: 0.22rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #95a0ab;
+}
 
-          .template-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 0.75rem;
-          }
+.score-meta h3 {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.25rem;
+  letter-spacing: -0.025em;
+}
 
-          .template-card {
-            border: 1px solid var(--line);
-            border-radius: 14px;
-            padding: 0.95rem 1rem;
-            background: linear-gradient(180deg, #ffffff 0%, #f7f9fa 100%);
-            min-height: 118px;
-            transition: transform 0.25s ease, border-color 0.25s ease;
-          }
+.score-meta p {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: 0.96rem;
+}
 
-          .template-card:hover {
-            transform: translateY(-2px);
-            border-color: #b7d4d1;
-          }
+.pill {
+  display: inline-flex;
+  margin-top: 0.55rem;
+  padding: 0.28rem 0.72rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
 
-          .template-card h4 {
-            margin: 0;
-            font-family: "Space Grotesk", sans-serif;
-            font-size: 1rem;
-            letter-spacing: -0.02em;
-          }
+.chip-row { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 
-          .template-card p {
-            margin: 0.4rem 0 0;
-            color: var(--muted);
-            font-size: 0.84rem;
-            line-height: 1.4;
-          }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.78rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: #215652;
+  border: 1px solid #cfe3e1;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
 
-          .cover-box {
-            white-space: pre-wrap;
-            background: #f7f8fa;
-            border: 1px solid var(--line);
-            border-radius: 14px;
-            padding: 1rem 1.1rem;
-            color: var(--ink);
-            line-height: 1.6;
-            font-size: 0.95rem;
-          }
+.insight-row {
+  display: flex;
+  gap: 0.65rem;
+  padding: 0.72rem 0.82rem;
+  border-radius: 12px;
+  margin-bottom: 0.45rem;
+  background: #f7f8fa;
+  border-left: 3px solid transparent;
+  color: var(--ink);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
 
-          .resume-preview {
-            white-space: pre-wrap;
-            background: #f7f8fa;
-            border: 1px solid var(--line);
-            border-radius: 14px;
-            padding: 1rem 1.1rem;
-            color: var(--ink);
-            line-height: 1.55;
-            font-size: 0.9rem;
-            max-height: 420px;
-            overflow: auto;
-          }
+.insight-row.strength {
+  background: #eef7f3;
+  border-left-color: #2f6f6a;
+}
 
-          .empty-note {
-            color: #9aa3ad;
-            font-size: 0.92rem;
-          }
+.insight-row.improvement {
+  background: #f8f3eb;
+  border-left-color: #9a7040;
+}
 
-          .placeholder {
-            text-align: center;
-            padding: 3.2rem 1rem;
-            color: var(--muted);
-          }
+.split-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
 
-          .placeholder-mark {
-            width: 48px;
-            height: 48px;
-            margin: 0 auto 0.8rem;
-            border-radius: 14px;
-            display: grid;
-            place-items: center;
-            background: var(--accent-soft);
-            color: var(--accent);
-            font-family: "Space Grotesk", sans-serif;
-            font-weight: 700;
-          }
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 0.7rem;
+  margin: 0.2rem 0 0.9rem;
+}
 
-          .loading-box {
-            text-align: center;
-            padding: 2.8rem 1rem;
-            color: var(--muted);
-          }
+.template-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.9rem 0.95rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f6f8f9 100%);
+  min-height: 108px;
+  transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+}
 
-          .loading-spinner {
-            width: 40px;
-            height: 40px;
-            margin: 0 auto 0.9rem;
-            border-radius: 50%;
-            border: 3px solid #dce8e7;
-            border-top-color: var(--accent);
-            animation: spin 0.8s linear infinite;
-          }
+.template-card:hover {
+  transform: translateY(-2px);
+  border-color: #b7d4d1;
+  box-shadow: 0 10px 22px rgba(47,111,106,0.08);
+}
 
-          @keyframes spin { to { transform: rotate(360deg); } }
-          @keyframes rise {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
+.template-card h4 {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.98rem;
+  letter-spacing: -0.02em;
+}
 
-          div[data-testid="stRadio"] label p { font-weight: 560; }
-          .stTextInput label, .stTextArea label, .stFileUploader label, .stRadio label {
-            font-weight: 650 !important;
-            color: var(--ink) !important;
-          }
-          .stTextInput input, .stTextArea textarea {
-            border-radius: 12px !important;
-            border-color: var(--line) !important;
-            background: #fafbfc !important;
-          }
-          .stTextInput input:focus, .stTextArea textarea:focus {
-            border-color: var(--accent) !important;
-            box-shadow: 0 0 0 1px var(--accent) !important;
-          }
-          div[data-testid="stFileUploader"] section {
-            border-radius: 12px;
-            border-color: #d5e3e1;
-            background: #fafbfc;
-          }
-          button[kind="primary"],
-          button[data-testid="stBaseButton-primary"] {
-            background: linear-gradient(120deg, #2f6f6a, #3d7f8f) !important;
-            border: none !important;
-            border-radius: 12px !important;
-            color: #fff !important;
-            font-weight: 650 !important;
-            padding: 0.6rem 1rem !important;
-            transition: transform 0.2s ease, filter 0.2s ease !important;
-          }
-          button[kind="primary"]:hover,
-          button[data-testid="stBaseButton-primary"]:hover {
-            filter: brightness(1.05) !important;
-            transform: translateY(-1px) !important;
-          }
+.template-card p {
+  margin: 0.38rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
 
-          [data-testid="stTabs"] button[aria-selected="true"] {
-            color: var(--accent) !important;
-          }
+.cover-box, .resume-preview {
+  white-space: pre-wrap;
+  background: #f6f8f9;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+  color: var(--ink);
+  line-height: 1.6;
+  font-size: 0.92rem;
+}
 
-          @media (max-width: 800px) {
-            .score-wrap { grid-template-columns: 1fr; justify-items: center; text-align: center; }
-          }
-        </style>
-        """,
-        unsafe_allow_html=True,
+.resume-preview {
+  max-height: 420px;
+  overflow: auto;
+  line-height: 1.55;
+  font-size: 0.88rem;
+}
+
+.empty-note { color: #95a0ab; font-size: 0.92rem; }
+
+.placeholder {
+  text-align: center;
+  padding: 2.8rem 1rem 2.4rem;
+  color: var(--muted);
+}
+
+.placeholder-mark {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 0.85rem;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 1.15rem;
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+.loading-box {
+  text-align: center;
+  padding: 2.6rem 1rem;
+  color: var(--muted);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 0.9rem;
+  border-radius: 50%;
+  border: 3px solid #dce8e7;
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+
+.outcome-list {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+div[data-testid="stRadio"] label p { font-weight: 600; }
+.stTextInput label, .stTextArea label, .stFileUploader label, .stRadio label {
+  font-weight: 600 !important;
+  color: var(--ink) !important;
+}
+.stTextInput input, .stTextArea textarea {
+  border-radius: 12px !important;
+  border-color: var(--line) !important;
+  background: #fafbfc !important;
+}
+.stTextInput input:focus, .stTextArea textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 1px var(--accent) !important;
+}
+div[data-testid="stFileUploader"] section {
+  border-radius: 12px;
+  border-color: #d5e3e1;
+  background: #fafbfc;
+}
+button[kind="primary"],
+button[data-testid="stBaseButton-primary"] {
+  background: linear-gradient(120deg, #2f6f6a, #3a7d8c) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  padding: 0.65rem 1rem !important;
+  transition: transform 0.18s ease, filter 0.18s ease !important;
+}
+button[kind="primary"]:hover,
+button[data-testid="stBaseButton-primary"]:hover {
+  filter: brightness(1.05) !important;
+  transform: translateY(-1px) !important;
+}
+[data-testid="stTabs"] button[aria-selected="true"] {
+  color: var(--accent) !important;
+}
+
+@media (max-width: 900px) {
+  .step-rail { grid-template-columns: 1fr; }
+  .score-wrap { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .split-two { grid-template-columns: 1fr; }
+}
+</style>
+"""
     )
 
 
@@ -684,27 +783,41 @@ for key, default in {
 
 inject_styles()
 
-st.markdown(
+render_html(
     """
-    <section class="brand-hero">
-      <h1 class="brand-mark">Resume <span>Analyser</span></h1>
-      <p class="brand-sub">
-        Paste a job screenshot or resume image, get your ATS score, fill keyword gaps,
-        and download a polished resume with a matching cover letter.
-      </p>
-    </section>
-    """,
-    unsafe_allow_html=True,
+<section class="brand-hero">
+  <div class="brand-kicker">ATS · Keywords · Templates</div>
+  <h1 class="brand-mark">Resume <span>Analyser</span></h1>
+  <p class="brand-sub">
+    Drop a LinkedIn or Naukri screenshot, score your ATS fit, fill the keyword gaps,
+    and download a rewritten resume with a cover letter — in one pass.
+  </p>
+</section>
+<div class="step-rail">
+  <div class="step-pill">
+    <div class="step-num">1</div>
+    <div class="step-copy"><strong>Add materials</strong><span>Resume + JD screenshot or text</span></div>
+  </div>
+  <div class="step-pill">
+    <div class="step-num">2</div>
+    <div class="step-copy"><strong>Set the role</strong><span>Target title for scoring</span></div>
+  </div>
+  <div class="step-pill">
+    <div class="step-num">3</div>
+    <div class="step-copy"><strong>Get your pack</strong><span>Score, rewrite, templates, letter</span></div>
+  </div>
+</div>
+"""
 )
 
-input_col, meta_col = st.columns([1.35, 1], gap="large")
+input_col, meta_col = st.columns([1.4, 1], gap="large")
 
 with input_col:
     with st.container(key="resume-panel"):
-        st.markdown('<p class="section-label">Resume</p>', unsafe_allow_html=True)
-        st.markdown(
-            '<p class="hint-line">Upload a PDF, drop an image, or paste a screenshot from your clipboard.</p>',
-            unsafe_allow_html=True,
+        render_html(
+            '<p class="section-label">Step 1a</p>'
+            '<p class="panel-title">Your resume</p>'
+            '<p class="hint-line">PDF, image, pasted screenshot, or plain text — whatever you have.</p>'
         )
         resume_mode = st.radio(
             "Resume input",
@@ -727,7 +840,7 @@ with input_col:
             )
         elif resume_mode == "Image":
             resume_paste = paste_image(
-                label="Paste resume screenshot",
+                label="Click here, then Ctrl+V / Cmd+V to paste resume screenshot",
                 key="resume_paste",
             )
             resume_file = st.file_uploader(
@@ -738,19 +851,19 @@ with input_col:
         else:
             resume_typed = st.text_area(
                 "Paste resume text",
-                height=200,
+                height=190,
                 placeholder="Paste your full resume text…",
                 label_visibility="collapsed",
                 key="resume_text_input",
             )
 
-    st.markdown("<div style='height:0.85rem'></div>", unsafe_allow_html=True)
+    st.write("")
 
     with st.container(key="jd-panel"):
-        st.markdown('<p class="section-label">Job description</p>', unsafe_allow_html=True)
-        st.markdown(
-            '<p class="hint-line">Paste a screenshot from LinkedIn, Naukri, Indeed, or upload the image.</p>',
-            unsafe_allow_html=True,
+        render_html(
+            '<p class="section-label">Step 1b</p>'
+            '<p class="panel-title">Job description</p>'
+            '<p class="hint-line">Paste a screenshot from LinkedIn, Naukri, or Indeed — or skip and score by role alone.</p>'
         )
         jd_mode = st.radio(
             "JD input",
@@ -766,7 +879,7 @@ with input_col:
 
         if jd_mode == "Image":
             jd_paste = paste_image(
-                label="Paste JD screenshot",
+                label="Click here, then Ctrl+V / Cmd+V to paste JD screenshot",
                 key="jd_paste",
             )
             jd_file = st.file_uploader(
@@ -777,37 +890,39 @@ with input_col:
         elif jd_mode == "Text":
             jd_typed = st.text_area(
                 "Paste job description",
-                height=180,
+                height=170,
                 placeholder="Paste the job description…",
                 label_visibility="collapsed",
                 key="jd_text_input",
             )
         else:
-            st.caption("You can still analyze against the target role alone.")
+            st.caption("We’ll still score against your target role.")
 
 with meta_col:
     with st.container(key="target-panel"):
-        st.markdown('<p class="section-label">Target</p>', unsafe_allow_html=True)
+        render_html(
+            '<p class="section-label">Step 2</p>'
+            '<p class="panel-title">Target role</p>'
+            '<p class="hint-line">Be specific — this steers ATS scoring and the rewrite.</p>'
+        )
         target_role = st.text_input(
             "Target role",
             placeholder="e.g. Senior Product Manager",
             label_visibility="collapsed",
         )
-        st.caption("Required. Used for ATS scoring and the rewritten resume.")
         analyze = st.button("Analyse resume", type="primary", use_container_width=True)
 
-        st.markdown(
+        render_html(
             """
-            <div style="margin-top:1.1rem;">
-              <p class="section-label">What you get</p>
-              <div class="insight-row strength"><span>1</span><span>ATS score with a clear verdict</span></div>
+            <div class="outcome-list">
+              <p class="section-label">You will receive</p>
+              <div class="insight-row strength"><span>1</span><span>ATS score and clear verdict</span></div>
               <div class="insight-row strength"><span>2</span><span>Missing keywords from the JD</span></div>
-              <div class="insight-row strength"><span>3</span><span>Updated resume that weaves them in</span></div>
-              <div class="insight-row strength"><span>4</span><span>5 downloadable resume templates</span></div>
+              <div class="insight-row strength"><span>3</span><span>Updated resume with those keywords</span></div>
+              <div class="insight-row strength"><span>4</span><span>Five professional PDF templates</span></div>
               <div class="insight-row strength"><span>5</span><span>Tailored cover letter</span></div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
 if analyze:
@@ -821,7 +936,6 @@ if analyze:
                     resume_file,
                     resume_paste,
                     resume_typed,
-                    "resume",
                 )
                 if jd_mode == "Skip":
                     job_description = ""
@@ -831,7 +945,6 @@ if analyze:
                         jd_file,
                         jd_paste,
                         jd_typed,
-                        "job description",
                     )
             if not resume_text.strip():
                 st.warning("Add a resume via PDF, image, or text first.")
@@ -847,221 +960,201 @@ if analyze:
         except Exception as exc:
             st.error(f"Could not read input: {exc}")
 
-st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
-st.markdown('<p class="section-label">Results</p>', unsafe_allow_html=True)
-results = st.container()
+st.write("")
+render_html('<p class="section-label">Step 3 · Results</p>')
 
-with results:
-    pending = st.session_state.pending_analysis
-    if pending:
-        st.markdown(
-            """
-            <div class="panel">
-              <div class="loading-box">
-                <div class="loading-spinner"></div>
-                <p>Scoring ATS fit, finding gaps, and drafting your updated pack…</p>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+pending = st.session_state.pending_analysis
+if pending:
+    render_html(
+        """
+        <div class="loading-box">
+          <div class="loading-spinner"></div>
+          <p>Scoring ATS fit, finding gaps, and drafting your updated pack…</p>
+        </div>
+        """
+    )
+    try:
+        st.session_state.analysis = analyze_and_upgrade(
+            resume_text=pending["resume_text"],
+            target_role=pending["target_role"],
+            job_description=pending["job_description"],
         )
-        try:
-            st.session_state.analysis = analyze_and_upgrade(
-                resume_text=pending["resume_text"],
-                target_role=pending["target_role"],
-                job_description=pending["job_description"],
-            )
-            st.session_state.analysis_error = None
-        except Exception as exc:
-            st.session_state.analysis = None
-            st.session_state.analysis_error = str(exc)
-        finally:
-            st.session_state.pending_analysis = None
-        st.rerun()
+        st.session_state.analysis_error = None
+    except Exception as exc:
+        st.session_state.analysis = None
+        st.session_state.analysis_error = str(exc)
+    finally:
+        st.session_state.pending_analysis = None
+    st.rerun()
 
-    analysis = st.session_state.analysis
-    if analysis:
-        try:
-            score = int(analysis.get("ats_score", analysis.get("score", 0)))
-        except (TypeError, ValueError):
-            score = 0
-        score = max(0, min(100, score))
-        color = score_color(score)
-        verdict = html.escape(str(analysis.get("verdict", "No verdict provided.")))
-        updated = analysis.get("updated_resume") or {}
-        cover_letter = str(analysis.get("cover_letter") or "").strip()
-        missing = analysis.get("missing_keywords") or []
+analysis = st.session_state.analysis
+if analysis:
+    try:
+        score = int(analysis.get("ats_score", analysis.get("score", 0)))
+    except (TypeError, ValueError):
+        score = 0
+    score = max(0, min(100, score))
+    color = score_color(score)
+    verdict = html.escape(str(analysis.get("verdict", "No verdict provided.")))
+    updated = analysis.get("updated_resume") or {}
+    cover_letter = str(analysis.get("cover_letter") or "").strip()
+    missing = analysis.get("missing_keywords") or []
 
-        tab_score, tab_keywords, tab_resume, tab_templates, tab_cover = st.tabs(
-            [
-                "ATS score",
-                "Missing keywords",
-                "Updated resume",
-                "Templates",
-                "Cover letter",
-            ]
-        )
+    tab_score, tab_keywords, tab_resume, tab_templates, tab_cover = st.tabs(
+        [
+            "ATS score",
+            "Missing keywords",
+            "Updated resume",
+            "Templates",
+            "Cover letter",
+        ]
+    )
 
-        with tab_score:
-            st.markdown(
+    with tab_score:
+        with st.container(key="score-panel"):
+            render_html(
                 f"""
-                <div class="panel">
-                  <div class="score-wrap">
-                    <div class="gauge" style="background: conic-gradient({color} 0% {score}%, #e6eaee {score}% 100%);">
-                      <div class="gauge-inner">
-                        <div class="gauge-score" style="color:{color};">{score}</div>
-                        <div class="gauge-caption">ATS</div>
-                      </div>
-                    </div>
-                    <div class="score-meta">
-                      <h3>Role match overview</h3>
-                      <div class="pill" style="color:{color};background:{color}1a;">{score_label(score)}</div>
-                      <p>{verdict}</p>
+                <div class="score-wrap">
+                  <div class="gauge" style="background: conic-gradient({color} 0% {score}%, #e6eaee {score}% 100%);">
+                    <div class="gauge-inner">
+                      <div class="gauge-score" style="color:{color};">{score}</div>
+                      <div class="gauge-caption">ATS</div>
                     </div>
                   </div>
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-top:0.9rem;">
-                    <div>
-                      <p class="section-label">Strengths</p>
-                      {render_insight_rows(analysis.get("strengths") or [], "strength")}
-                    </div>
-                    <div>
-                      <p class="section-label">Improve</p>
-                      {render_insight_rows(analysis.get("improvements") or [], "improvement")}
-                    </div>
+                  <div class="score-meta">
+                    <h3>Role match overview</h3>
+                    <div class="pill" style="color:{color};background:{color}1a;">{score_label(score)}</div>
+                    <p>{verdict}</p>
                   </div>
                 </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        with tab_keywords:
-            st.markdown(
-                f"""
-                <div class="panel">
-                  <p class="section-label">Keywords to add</p>
-                  <p class="hint-line">These terms were weak or missing versus the role / JD. They are woven into the updated resume.</p>
-                  {render_keywords(missing)}
+                <div class="split-two">
+                  <div>
+                    <p class="section-label">Strengths</p>
+                    {render_insight_rows(analysis.get("strengths") or [], "strength")}
+                  </div>
+                  <div>
+                    <p class="section-label">Improve</p>
+                    {render_insight_rows(analysis.get("improvements") or [], "improvement")}
+                  </div>
                 </div>
-                """,
-                unsafe_allow_html=True,
+                """
             )
 
-        with tab_resume:
-            preview = format_updated_resume_text(updated)
-            with st.container(key="resume-result-panel"):
-                st.markdown(
-                    '<p class="section-label">Keyword-optimized resume</p>',
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    f'<div class="resume-preview">{html.escape(preview)}</div>',
-                    unsafe_allow_html=True,
-                )
+    with tab_keywords:
+        with st.container(key="keywords-panel"):
+            render_html(
+                f"""
+                <p class="section-label">Gaps</p>
+                <p class="panel-title">Keywords to add</p>
+                <p class="hint-line">Weak or missing versus the role / JD. These are woven into the updated resume.</p>
+                {render_keywords(missing)}
+                """
+            )
+
+    with tab_resume:
+        preview = format_updated_resume_text(updated)
+        with st.container(key="resume-result-panel"):
+            render_html(
+                f"""
+                <p class="section-label">Rewrite</p>
+                <p class="panel-title">Keyword-optimized resume</p>
+                <p class="hint-line">Review the draft, then download text or pick a PDF template next.</p>
+                <div class="resume-preview">{html.escape(preview)}</div>
+                """
+            )
+            st.download_button(
+                "Download updated resume (.txt)",
+                data=preview.encode("utf-8"),
+                file_name="updated_resume.txt",
+                mime="text/plain",
+                use_container_width=True,
+            )
+
+    with tab_templates:
+        with st.container(key="templates-panel"):
+            cards = "".join(
+                f'<div class="template-card"><h4>{html.escape(t["name"])}</h4>'
+                f'<p>{html.escape(t["blurb"])}</p></div>'
+                for t in TEMPLATES
+            )
+            render_html(
+                f"""
+                <p class="section-label">Download</p>
+                <p class="panel-title">Choose a template</p>
+                <p class="hint-line">Five professional layouts for the updated resume.</p>
+                <div class="template-grid">{cards}</div>
+                """
+            )
+            template_names = {t["name"]: t["id"] for t in TEMPLATES}
+            choice = st.selectbox(
+                "Template",
+                options=list(template_names.keys()),
+                index=1,
+                label_visibility="collapsed",
+            )
+            template_id = template_names[choice]
+            st.session_state.selected_template = template_id
+            try:
+                pdf_bytes = build_resume_pdf(updated, template_id)
                 st.download_button(
-                    "Download updated resume (.txt)",
-                    data=preview.encode("utf-8"),
-                    file_name="updated_resume.txt",
-                    mime="text/plain",
+                    f"Download {choice} PDF",
+                    data=pdf_bytes,
+                    file_name=f"resume_{template_id}.pdf",
+                    mime="application/pdf",
+                    type="primary",
                     use_container_width=True,
                 )
+            except Exception as exc:
+                st.error(f"Could not build PDF: {exc}")
 
-        with tab_templates:
-            with st.container(key="templates-panel"):
-                st.markdown(
-                    '<p class="section-label">Choose a template</p>',
-                    unsafe_allow_html=True,
+    with tab_cover:
+        with st.container(key="cover-panel"):
+            if cover_letter:
+                render_html(
+                    f"""
+                    <p class="section-label">Outreach</p>
+                    <p class="panel-title">Cover letter</p>
+                    <p class="hint-line">Ready to send with your updated resume.</p>
+                    <div class="cover-box">{html.escape(cover_letter)}</div>
+                    """
                 )
-                st.markdown(
-                    '<p class="hint-line">Five professional layouts. Pick one and download a PDF of your updated resume.</p>',
-                    unsafe_allow_html=True,
-                )
-
-                cards = "".join(
-                    f'<div class="template-card"><h4>{html.escape(t["name"])}</h4>'
-                    f'<p>{html.escape(t["blurb"])}</p></div>'
-                    for t in TEMPLATES
-                )
-                st.markdown(
-                    f'<div class="template-grid">{cards}</div>',
-                    unsafe_allow_html=True,
-                )
-
-                template_names = {t["name"]: t["id"] for t in TEMPLATES}
-                choice = st.selectbox(
-                    "Template",
-                    options=list(template_names.keys()),
-                    index=1,
-                    label_visibility="collapsed",
-                )
-                template_id = template_names[choice]
-                st.session_state.selected_template = template_id
-
-                try:
-                    pdf_bytes = build_resume_pdf(updated, template_id)
+                c1, c2 = st.columns(2)
+                with c1:
                     st.download_button(
-                        f"Download {choice} PDF",
-                        data=pdf_bytes,
-                        file_name=f"resume_{template_id}.pdf",
-                        mime="application/pdf",
-                        type="primary",
+                        "Download .txt",
+                        data=cover_letter.encode("utf-8"),
+                        file_name="cover_letter.txt",
+                        mime="text/plain",
                         use_container_width=True,
                     )
-                except Exception as exc:
-                    st.error(f"Could not build PDF: {exc}")
-
-        with tab_cover:
-            with st.container(key="cover-panel"):
-                st.markdown(
-                    '<p class="section-label">Cover letter</p>',
-                    unsafe_allow_html=True,
-                )
-                if cover_letter:
-                    st.markdown(
-                        f'<div class="cover-box">{html.escape(cover_letter)}</div>',
-                        unsafe_allow_html=True,
-                    )
-                    c1, c2 = st.columns(2)
-                    with c1:
+                with c2:
+                    try:
+                        cover_pdf = build_cover_letter_pdf(
+                            cover_letter,
+                            candidate_name=str(updated.get("full_name") or ""),
+                        )
                         st.download_button(
-                            "Download .txt",
-                            data=cover_letter.encode("utf-8"),
-                            file_name="cover_letter.txt",
-                            mime="text/plain",
+                            "Download PDF",
+                            data=cover_pdf,
+                            file_name="cover_letter.pdf",
+                            mime="application/pdf",
+                            type="primary",
                             use_container_width=True,
                         )
-                    with c2:
-                        try:
-                            cover_pdf = build_cover_letter_pdf(
-                                cover_letter,
-                                candidate_name=str(updated.get("full_name") or ""),
-                            )
-                            st.download_button(
-                                "Download PDF",
-                                data=cover_pdf,
-                                file_name="cover_letter.pdf",
-                                mime="application/pdf",
-                                type="primary",
-                                use_container_width=True,
-                            )
-                        except Exception as exc:
-                            st.error(f"Could not build cover letter PDF: {exc}")
-                else:
-                    st.markdown(
-                        '<p class="empty-note">No cover letter was returned.</p>',
-                        unsafe_allow_html=True,
-                    )
+                    except Exception as exc:
+                        st.error(f"Could not build cover letter PDF: {exc}")
+            else:
+                render_html('<p class="empty-note">No cover letter was returned.</p>')
 
-    elif st.session_state.analysis_error:
-        st.error(f"Analysis failed: {st.session_state.analysis_error}")
-    else:
-        st.markdown(
+elif st.session_state.analysis_error:
+    st.error(f"Analysis failed: {st.session_state.analysis_error}")
+else:
+    with st.container(key="empty-panel"):
+        render_html(
             """
-            <div class="panel">
-              <div class="placeholder">
-                <div class="placeholder-mark">◈</div>
-                <p>Your ATS score, keyword gaps, updated resume, templates, and cover letter will land here.</p>
-              </div>
+            <div class="placeholder">
+              <div class="placeholder-mark">◈</div>
+              <p>Your ATS score, keyword gaps, updated resume, templates, and cover letter will appear here.</p>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
