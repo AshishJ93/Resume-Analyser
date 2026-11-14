@@ -36,21 +36,39 @@ html, body {
   font-family: "Manrope", sans-serif;
 }
 
+/* Calm living backdrop only — always behind UI, never competing with upload path */
 [data-testid="stAppViewContainer"]::before,
 .stApp::before {
   content: "";
   position: fixed !important;
   inset: 0;
   z-index: 0;
-  pointer-events: none;
+  pointer-events: none !important;
   background:
-    radial-gradient(ellipse 55% 45% at 12% 8%, rgba(42,106,102,0.42), transparent 58%),
-    radial-gradient(ellipse 50% 40% at 92% 12%, rgba(58,125,140,0.30), transparent 55%),
-    radial-gradient(ellipse 45% 35% at 70% 88%, rgba(42,106,102,0.18), transparent 60%),
-    radial-gradient(ellipse 40% 30% at 20% 75%, rgba(15,20,25,0.06), transparent 65%),
-    linear-gradient(165deg, #e4ecec 0%, #f3f6f7 42%, #e8efef 100%);
-  background-size: 140% 140%, 130% 130%, 150% 150%, 120% 120%, 100% 100%;
-  animation: auroraShift 18s ease-in-out infinite alternate;
+    radial-gradient(ellipse 60% 48% at 10% 6%, rgba(42,106,102,0.28), transparent 60%),
+    radial-gradient(ellipse 52% 42% at 92% 10%, rgba(58,125,140,0.20), transparent 58%),
+    radial-gradient(ellipse 48% 38% at 72% 90%, rgba(42,106,102,0.12), transparent 62%),
+    radial-gradient(ellipse 42% 34% at 18% 78%, rgba(15,20,25,0.05), transparent 65%),
+    linear-gradient(165deg, #e6eded 0%, #f4f7f7 46%, #e9efef 100%);
+  background-size: 135% 135%, 125% 125%, 140% 140%, 120% 120%, 100% 100%;
+  animation: auroraShift 22s ease-in-out infinite alternate;
+}
+
+[data-testid="stAppViewContainer"]::after,
+.stApp::after {
+  content: "";
+  position: fixed !important;
+  inset: -10%;
+  z-index: 0;
+  pointer-events: none !important;
+  opacity: 0.14;
+  background:
+    linear-gradient(115deg, transparent 0 38%, rgba(255,255,255,0.55) 38% 39%, transparent 39% 100%),
+    linear-gradient(155deg, transparent 0 62%, rgba(42,106,102,0.07) 62% 63%, transparent 63% 100%),
+    radial-gradient(circle at 30% 40%, rgba(255,255,255,0.35), transparent 28%),
+    radial-gradient(circle at 78% 30%, rgba(255,255,255,0.25), transparent 22%);
+  filter: blur(18px);
+  animation: softVeil 28s ease-in-out infinite alternate;
 }
 
 [data-testid="stHeader"] {
@@ -62,82 +80,16 @@ section.main,
 .main,
 .block-container {
   position: relative;
-  z-index: 2;
+  z-index: 3;
 }
 
-/* —— Floating resume pages (Naukri-style paper sky) —— */
+/* Hide any leftover paper-sky from older deploys */
 #ra-paper-sky,
-.paper-sky {
-  position: fixed !important;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none !important;
-  overflow: hidden;
-}
-
-.fly-sheet {
-  position: absolute;
-  width: 132px;
-  height: 176px;
-  border-radius: 10px;
-  background:
-    linear-gradient(#2a6a66, #2a6a66) 14px 18px / 52px 8px no-repeat,
-    linear-gradient(#d7e3e1, #d7e3e1) 14px 38px / 92px 5px no-repeat,
-    linear-gradient(#d7e3e1, #d7e3e1) 14px 52px / 84px 5px no-repeat,
-    linear-gradient(#d7e3e1, #d7e3e1) 14px 66px / 96px 5px no-repeat,
-    linear-gradient(#e7f0ee, #e7f0ee) 14px 88px / 70px 5px no-repeat,
-    linear-gradient(#d7e3e1, #d7e3e1) 14px 108px / 90px 5px no-repeat,
-    linear-gradient(#d7e3e1, #d7e3e1) 14px 122px / 78px 5px no-repeat,
-    linear-gradient(#d7e3e1, #d7e3e1) 14px 136px / 88px 5px no-repeat,
-    linear-gradient(180deg, #ffffff 0%, #f4f8f7 100%);
-  border: 1px solid rgba(42, 106, 102, 0.18);
-  box-shadow:
-    0 18px 40px rgba(15, 20, 25, 0.12),
-    0 2px 0 rgba(255,255,255,0.8) inset;
-  opacity: 0.55;
-  will-change: transform;
-  transform-origin: center center;
-}
-
-.fly-sheet::after {
-  content: "RESUME";
-  position: absolute;
-  left: 14px;
-  bottom: 14px;
-  font-family: "Space Grotesk", "Manrope", sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: rgba(42, 106, 102, 0.55);
-}
-
-.fly-sheet.s1 { left: 6%; top: 12%; animation: paperDrift1 18s ease-in-out infinite; }
-.fly-sheet.s2 { left: 78%; top: 18%; width: 118px; height: 158px; opacity: 0.42; animation: paperDrift2 22s ease-in-out infinite; }
-.fly-sheet.s3 { left: 18%; top: 62%; width: 110px; height: 148px; opacity: 0.38; animation: paperDrift3 20s ease-in-out infinite; }
-.fly-sheet.s4 { left: 62%; top: 58%; width: 124px; height: 166px; opacity: 0.48; animation: paperDrift4 24s ease-in-out infinite; }
-.fly-sheet.s5 { left: 42%; top: 8%; width: 100px; height: 136px; opacity: 0.34; animation: paperDrift5 16s ease-in-out infinite; }
-.fly-sheet.s6 { left: 88%; top: 68%; width: 108px; height: 146px; opacity: 0.36; animation: paperDrift1 26s ease-in-out infinite reverse; }
-
+.paper-sky,
+.fly-sheet,
 .fly-chip {
-  position: absolute;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.78);
-  border: 1px solid rgba(42,106,102,0.18);
-  color: #2a6a66;
-  font-family: "Manrope", sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  box-shadow: 0 10px 24px rgba(15,20,25,0.08);
-  opacity: 0.7;
-  white-space: nowrap;
+  display: none !important;
 }
-
-.fly-chip.c1 { left: 28%; top: 28%; animation: chipFloat 14s ease-in-out infinite; }
-.fly-chip.c2 { left: 70%; top: 42%; animation: chipFloat 17s ease-in-out infinite reverse; }
-.fly-chip.c3 { left: 12%; top: 78%; animation: chipFloat 15s ease-in-out infinite 1s; }
-.fly-chip.c4 { left: 54%; top: 82%; animation: chipFloat 19s ease-in-out infinite 0.5s; }
 
 .block-container {
   max-width: 1120px;
@@ -825,34 +777,9 @@ button[data-testid="stBaseButton-primary"]:hover {
   0% { background-position: 0% 0%, 100% 0%, 80% 100%, 10% 80%, 0% 0%; transform: scale(1); }
   100% { background-position: 18% 12%, 78% 18%, 60% 86%, 24% 70%, 0% 0%; transform: scale(1.05); }
 }
-@keyframes paperDrift1 {
-  0%   { transform: translate(0, 0) rotate(-8deg); }
-  50%  { transform: translate(36px, -48px) rotate(6deg); }
-  100% { transform: translate(0, 0) rotate(-8deg); }
-}
-@keyframes paperDrift2 {
-  0%   { transform: translate(0, 0) rotate(10deg); }
-  50%  { transform: translate(-42px, 38px) rotate(-4deg); }
-  100% { transform: translate(0, 0) rotate(10deg); }
-}
-@keyframes paperDrift3 {
-  0%   { transform: translate(0, 0) rotate(-14deg); }
-  50%  { transform: translate(50px, 28px) rotate(3deg); }
-  100% { transform: translate(0, 0) rotate(-14deg); }
-}
-@keyframes paperDrift4 {
-  0%   { transform: translate(0, 0) rotate(7deg); }
-  50%  { transform: translate(-30px, -44px) rotate(-9deg); }
-  100% { transform: translate(0, 0) rotate(7deg); }
-}
-@keyframes paperDrift5 {
-  0%   { transform: translate(0, 0) rotate(-3deg); }
-  50%  { transform: translate(24px, 40px) rotate(12deg); }
-  100% { transform: translate(0, 0) rotate(-3deg); }
-}
-@keyframes chipFloat {
-  0%, 100% { transform: translateY(0) translateX(0); }
-  50% { transform: translateY(-18px) translateX(10px); }
+@keyframes softVeil {
+  0% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.12; }
+  100% { transform: translate3d(-2%, 1.5%, 0) scale(1.04); opacity: 0.18; }
 }
 @keyframes sheen {
   0%, 100% { background-position: 0% 50%; }
@@ -885,61 +812,21 @@ button[data-testid="stBaseButton-primary"]:hover {
   .story-beat { border-right: none; border-bottom: 1px solid rgba(15,20,25,0.08); }
   .story-beat:last-child { border-bottom: none; }
   .punch-stage { min-height: 8rem; }
-  .fly-sheet.s5, .fly-sheet.s6, .fly-chip.c3, .fly-chip.c4 { display: none; }
-  .fly-sheet { opacity: 0.4; }
 }
 </style>
 """
 
-PAPER_SKY_MARKUP = """
-<div id="ra-paper-sky" class="paper-sky" aria-hidden="true">
-  <div class="fly-sheet s1"></div>
-  <div class="fly-sheet s2"></div>
-  <div class="fly-sheet s3"></div>
-  <div class="fly-sheet s4"></div>
-  <div class="fly-sheet s5"></div>
-  <div class="fly-sheet s6"></div>
-  <div class="fly-chip c1">ATS score</div>
-  <div class="fly-chip c2">Keywords</div>
-  <div class="fly-chip c3">Cover letter</div>
-  <div class="fly-chip c4">India salary</div>
-</div>
-"""
-
-# Mount into the parent page body so Streamlit layout wrappers cannot clip/kill fixed motion.
-PAPER_SKY_BOOTSTRAP = r"""
+# One-time cleanup for older deploys that mounted papers onto document.body
+CLEANUP_OLD_PAPER_SKY = r"""
 <script>
 (function () {
-  var doc = window.parent && window.parent.document ? window.parent.document : document;
-  var win = window.parent && window.parent.document ? window.parent : window;
-  if (win.__raPaperSkyMounted) return;
-  win.__raPaperSkyMounted = true;
-
-  function mount() {
-    if (!doc.body) return;
-    if (doc.getElementById("ra-paper-sky")) return;
-    var sky = doc.createElement("div");
-    sky.id = "ra-paper-sky";
-    sky.className = "paper-sky";
-    sky.setAttribute("aria-hidden", "true");
-    sky.innerHTML = [
-      '<div class="fly-sheet s1"></div>',
-      '<div class="fly-sheet s2"></div>',
-      '<div class="fly-sheet s3"></div>',
-      '<div class="fly-sheet s4"></div>',
-      '<div class="fly-sheet s5"></div>',
-      '<div class="fly-sheet s6"></div>',
-      '<div class="fly-chip c1">ATS score</div>',
-      '<div class="fly-chip c2">Keywords</div>',
-      '<div class="fly-chip c3">Cover letter</div>',
-      '<div class="fly-chip c4">India salary</div>'
-    ].join("");
-    doc.body.appendChild(sky);
-  }
-
-  mount();
-  setTimeout(mount, 80);
-  setTimeout(mount, 500);
+  try {
+    var doc = window.parent && window.parent.document ? window.parent.document : document;
+    var win = window.parent && window.parent.document ? window.parent : window;
+    var el = doc.getElementById("ra-paper-sky");
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+    win.__raPaperSkyMounted = false;
+  } catch (e) {}
 })();
 </script>
 """
@@ -949,7 +836,4 @@ def inject_styles(render_html) -> None:
     import streamlit.components.v1 as components
 
     render_html(STYLE_HTML)
-    # Fallback markup inside the app tree
-    render_html(PAPER_SKY_MARKUP)
-    # Preferred: mount onto parent body for true full-page floating papers
-    components.html(PAPER_SKY_BOOTSTRAP, height=0, scrolling=False)
+    components.html(CLEANUP_OLD_PAPER_SKY, height=0, scrolling=False)
