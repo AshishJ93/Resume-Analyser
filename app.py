@@ -231,8 +231,23 @@ def analyze_fit_and_market(
         f"Resume:\n{resume_text.strip()}"
     )
     data = _chat_json(system_prompt, user_prompt, temperature=0.25)
+    if not isinstance(data, dict):
+        data = {}
     if "ats_score" not in data and "score" in data:
         data["ats_score"] = data["score"]
+    try:
+        data["ats_score"] = max(0, min(100, int(data.get("ats_score", 0))))
+    except (TypeError, ValueError):
+        data["ats_score"] = 0
+    if not isinstance(data.get("missing_keywords"), list):
+        data["missing_keywords"] = []
+    if not isinstance(data.get("strengths"), list):
+        data["strengths"] = []
+    if not isinstance(data.get("improvements"), list):
+        data["improvements"] = []
+    if not isinstance(data.get("india_salary"), dict):
+        data["india_salary"] = {}
+    data.setdefault("verdict", "Analysis complete.")
     return data
 
 
@@ -267,7 +282,27 @@ def rewrite_full_resume(
         f"{resume_text.strip()}"
     )
     data = _chat_json(system_prompt, user_prompt, temperature=0.3)
-    return data.get("updated_resume") or data
+    updated = data.get("updated_resume") if isinstance(data, dict) else None
+    if not isinstance(updated, dict):
+        updated = data if isinstance(data, dict) else {}
+    # Defensive defaults so PDF/templates never crash on partial model output.
+    updated.setdefault("full_name", "")
+    updated.setdefault("headline", "")
+    updated.setdefault("summary", "")
+    updated.setdefault("contact", {})
+    updated.setdefault("skills", [])
+    updated.setdefault("experience", [])
+    updated.setdefault("projects", [])
+    updated.setdefault("education", [])
+    updated.setdefault("certifications", [])
+    updated.setdefault("awards", [])
+    updated.setdefault("languages", [])
+    updated.setdefault("additional_sections", [])
+    if not isinstance(updated.get("experience"), list):
+        updated["experience"] = []
+    if not isinstance(updated.get("skills"), list):
+        updated["skills"] = []
+    return updated
 
 
 def write_cover_letter(
@@ -837,6 +872,11 @@ with meta_col:
 if analyze:
     if not target_role.strip():
         st.warning("Add a target role to continue.")
+    elif not get_xai_api_key():
+        st.error(
+            "XAI_API_KEY is missing. Add it in Streamlit App settings → Secrets "
+            '(XAI_API_KEY = "xai-...") or in your local .env before analysing.'
+        )
     else:
         try:
             with st.spinner("Reading your documents…"):
@@ -857,6 +897,11 @@ if analyze:
                     )
             if not resume_text.strip():
                 st.warning("Add a resume via PDF, image, or text first.")
+            elif len(resume_text.split()) < 40:
+                st.warning(
+                    "That resume looks too short to analyse well. "
+                    "Try a fuller PDF, clearer screenshot, or paste more text."
+                )
             else:
                 st.session_state.pending_analysis = {
                     "resume_text": resume_text,

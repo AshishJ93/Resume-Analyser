@@ -1,0 +1,27 @@
+Resume Analyser - morning launch checklist
+==========================================
+
+1) Streamlit Cloud
+   - App must be Public (not private / access denied)
+   - Main file: app.py
+   - Secrets exactly:
+       XAI_API_KEY = "xai-your-key"
+   - Confirm latest GitHub main is deployed (reboot if needed)
+   - Copy the live URL into your LinkedIn first comment
+
+2) 5-minute smoke on the live URL
+   - Page loads with animated teal background (not raw CSS text)
+   - Upload AshishJain_POResume PDF
+   - Paste sample JD from launch/sample_jd_product_owner.txt
+   - Target role: Product Owner - Cards & Payments
+   - Click Analyse
+   - Confirm checklist ticks, then all 6 deliverables open
+   - Download one resume PDF + cover letter PDF
+
+3) LinkedIn
+   - Attach: launch/ResumeAnalyser_Launch_Carousel.pdf
+   - Paste: launch/linkedin_post_ready.txt
+   - First comment: the live Streamlit URL only
+   - Optional: 20-30s screen recording of Analyse -> pack ready
+
+4) Do NOT put API keys in the post, carousel, GitHub, or screenshots

@@ -1,0 +1,18 @@
+I got tired of rewriting my resume for every JD.
+
+So I built Resume Analyser.
+
+Paste a Naukri or LinkedIn job screenshot. Upload your resume PDF. You'll get a full pack back:
+
+1. ATS score and verdict
+2. Missing keywords from the JD
+3. Updated resume with those keywords woven in (your history stays. Nothing gets trimmed.)
+4. Five professional PDF templates
+5. A tailored cover letter
+6. India Tier-1 / Tier-2 / Tier-3 salary bands for the role
+
+I built this the same way I'm learning AI product work: ship something real, then improve it in public.
+
+If you're applying this week, try it with one real JD and tell me where it still falls short.
+
+Link in the first comment.

@@ -1,0 +1,19 @@
+Product Owner - Cards & Payments (Bengaluru / Hybrid)
+
+We are hiring a Product Owner for our card issuing and dispute operations platform.
+
+Responsibilities:
+- Own the roadmap for dispute lifecycle, chargebacks, and settlement workflows
+- Drive ISO 20022 / ISO 8583 compliance initiatives with risk and compliance teams
+- Partner with engineering on data quality controls, reconciliation, and migration programmes
+- Define acceptance criteria, prioritise backlog, and run Agile ceremonies
+- Work with stakeholders across banking ops, customer experience, and technology
+
+Requirements:
+- 8+ years in product ownership / business analysis in cards, payments, or fintech
+- Hands-on experience with dispute management, PCI DSS awareness, and regulatory delivery
+- Strong SQL and analytics literacy; comfortable with API-based integrations
+- CSPO or equivalent Agile certification preferred
+- Excellent stakeholder management across business and technology
+
+Nice to have: experience migrating large card portfolios, AI/automation in ops, Power BI.
