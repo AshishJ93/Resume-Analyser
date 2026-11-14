@@ -309,6 +309,26 @@ RESULT_NAV = [
     ("salary", "India salary", "Tier-1 / 2 / 3 LPA"),
 ]
 
+BUFFER_ICONS = [
+    ("◈", "Score"),
+    ("⌘", "Keywords"),
+    ("▣", "Resume"),
+    ("▤", "Templates"),
+    ("✉", "Letter"),
+    ("₹", "Salary"),
+]
+
+BUFFER_PUNCHLINES = [
+    "Your next interview starts with a clearer resume.",
+    "Keywords aren’t fluff — they’re how ATS finds you.",
+    "We’re keeping your full story. Just making it land harder.",
+    "Tier-1 or Tier-3 — the right fit still starts with clarity.",
+    "Almost there. This pack is built around your role.",
+    "Confidence isn’t luck. It’s a resume that matches the JD.",
+    "Stay with us — your application pack is taking shape.",
+    "Every line we keep is yours. Every keyword earns its place.",
+]
+
 
 def render_receive_checklist(
     done_ids: set[int] | None = None,
@@ -348,18 +368,67 @@ def render_receive_checklist(
     )
 
 
-def paint_checklist(
+def render_buffering_stage(
+    done_ids: set[int],
+    active_id: int | None = None,
+    *,
+    title: str,
+    subtitle: str | None = None,
+    finished: bool = False,
+) -> str:
+    """Engaging buffer UI: orbiting icons, cycling punchlines, live checklist."""
+    stage_class = "buffer-stage is-done" if finished else "buffer-stage"
+    icons = "".join(
+        f'<div class="spin-icon" style="--i:{idx}">'
+        f"<span>{icon}</span>"
+        f'<em>{html.escape(label)}</em>'
+        f"</div>"
+        for idx, (icon, label) in enumerate(BUFFER_ICONS)
+    )
+    punches = "".join(
+        f'<p class="punch">{html.escape(line)}</p>' for line in BUFFER_PUNCHLINES
+    )
+    headline = (
+        "Your pack is ready"
+        if finished
+        else "Building your personal application pack"
+    )
+    support = (
+        "Open the deliverables below — this one is built around your role."
+        if finished
+        else "Stay here a moment. Great resumes aren’t rushed; they’re fitted."
+    )
+    return f"""
+    <div class="{stage_class}">
+      <div class="buffer-head">
+        <p class="section-label">{'Complete' if finished else 'Working for you'}</p>
+        <h3 class="buffer-title">{html.escape(headline)}</h3>
+        <p class="buffer-support">{html.escape(support)}</p>
+      </div>
+      <div class="icon-orbit" aria-hidden="true">{icons}</div>
+      <div class="punch-stage" aria-live="polite">{punches}</div>
+      {render_receive_checklist(done_ids, active_id, title=title, subtitle=subtitle)}
+    </div>
+    """
+
+
+def paint_buffering_stage(
     slot,
     done_ids: set[int],
     active_id: int | None = None,
     *,
     title: str,
     subtitle: str | None = None,
+    finished: bool = False,
 ) -> None:
     with slot.container():
         render_html(
-            render_receive_checklist(
-                done_ids, active_id, title=title, subtitle=subtitle
+            render_buffering_stage(
+                done_ids,
+                active_id,
+                title=title,
+                subtitle=subtitle,
+                finished=finished,
             )
         )
 
@@ -367,12 +436,12 @@ def paint_checklist(
 def run_analysis_pipeline(
     resume_text: str, target_role: str, job_description: str
 ) -> dict:
-    """Multi-step analysis with a live checklist matching the deliverables."""
+    """Multi-step analysis with live checklist, icons, and punchlines."""
     result: dict = {}
     done: set[int] = set()
     slot = st.empty()
 
-    paint_checklist(
+    paint_buffering_stage(
         slot,
         done,
         active_id=1,
@@ -383,7 +452,7 @@ def run_analysis_pipeline(
     fit = analyze_fit_and_market(resume_text, target_role, job_description)
     result.update(fit)
     done.update({1, 2, 6})
-    paint_checklist(
+    paint_buffering_stage(
         slot,
         done,
         active_id=3,
@@ -403,7 +472,7 @@ def run_analysis_pipeline(
     result["updated_resume"] = updated
     done.update({3, 4})
     roles = len((updated or {}).get("experience") or [])
-    paint_checklist(
+    paint_buffering_stage(
         slot,
         done,
         active_id=5,
@@ -415,11 +484,12 @@ def run_analysis_pipeline(
         resume_text, target_role, job_description, updated
     )
     done.add(5)
-    paint_checklist(
+    paint_buffering_stage(
         slot,
         done,
         title="Pack ready",
         subtitle="All 6 deliverables are ready — open them in Results below.",
+        finished=True,
     )
     return result
 
@@ -464,6 +534,13 @@ def resolve_source_text(
 def inject_styles() -> None:
     render_html(
         """
+<div class="live-bg" aria-hidden="true">
+  <div class="orb orb-a"></div>
+  <div class="orb orb-b"></div>
+  <div class="orb orb-c"></div>
+  <div class="orb orb-d"></div>
+  <div class="grain"></div>
+</div>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
@@ -490,16 +567,74 @@ def inject_styles() -> None:
 }
 
 .stApp {
-  background:
-    radial-gradient(1100px 520px at 8% -12%, rgba(47,111,106,0.16), transparent 58%),
-    radial-gradient(900px 480px at 100% -4%, rgba(58,125,140,0.12), transparent 52%),
-    radial-gradient(700px 380px at 50% 110%, rgba(20,24,31,0.04), transparent 55%),
-    linear-gradient(180deg, #ebf0f2 0%, #f6f8f9 46%, #eef1f3 100%);
+  background: linear-gradient(180deg, #e8eef0 0%, #f5f7f8 48%, #eef2f3 100%);
   color: var(--ink);
   font-family: "Manrope", sans-serif;
 }
 
+.live-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(72px);
+  opacity: 0.55;
+  will-change: transform;
+}
+
+.orb-a {
+  width: 420px;
+  height: 420px;
+  left: -8%;
+  top: -6%;
+  background: rgba(47, 111, 106, 0.28);
+  animation: driftA 22s ease-in-out infinite;
+}
+
+.orb-b {
+  width: 360px;
+  height: 360px;
+  right: -6%;
+  top: 8%;
+  background: rgba(58, 125, 140, 0.24);
+  animation: driftB 26s ease-in-out infinite;
+}
+
+.orb-c {
+  width: 300px;
+  height: 300px;
+  left: 28%;
+  bottom: 4%;
+  background: rgba(47, 111, 106, 0.14);
+  animation: driftC 20s ease-in-out infinite;
+}
+
+.orb-d {
+  width: 220px;
+  height: 220px;
+  right: 22%;
+  bottom: 18%;
+  background: rgba(20, 24, 31, 0.06);
+  animation: driftA 18s ease-in-out infinite reverse;
+}
+
+.grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.035;
+  background-image: radial-gradient(rgba(20,24,31,0.55) 0.6px, transparent 0.7px);
+  background-size: 3px 3px;
+}
+
 .block-container {
+  position: relative;
+  z-index: 1;
   max-width: 1120px;
   padding-top: 1.5rem;
   padding-bottom: 3.6rem;
@@ -993,6 +1128,153 @@ div.st-key-result-nav div[data-testid="stRadio"] label p {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.04); }
 }
+@keyframes driftA {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(40px, 28px) scale(1.08); }
+}
+@keyframes driftB {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-36px, 34px) scale(1.1); }
+}
+@keyframes driftC {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(24px, -30px) scale(1.06); }
+}
+@keyframes iconSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes iconFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+@keyframes punchCycle {
+  0%, 2% { opacity: 0; transform: translateY(10px); }
+  6%, 11% { opacity: 1; transform: translateY(0); }
+  15%, 100% { opacity: 0; transform: translateY(-8px); }
+}
+
+.buffer-stage {
+  margin: 0 0 1rem;
+  padding: 1.2rem 1.25rem 1.3rem;
+  border-radius: 22px;
+  background: rgba(255,255,255,0.78);
+  border: 1px solid rgba(207,227,225,0.95);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  animation: rise 0.55s ease both;
+}
+.buffer-stage.is-done {
+  background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(231,242,241,0.92));
+}
+.buffer-head { margin-bottom: 0.85rem; }
+.buffer-title {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+.buffer-support {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.94rem;
+  line-height: 1.5;
+  max-width: 34rem;
+}
+
+.icon-orbit {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.55rem;
+  margin: 0.2rem 0 1rem;
+}
+.spin-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.7rem 0.35rem 0.6rem;
+  border-radius: 14px;
+  background: #eef3f1;
+  border: 1px solid #d7e4e1;
+}
+.spin-icon span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--accent);
+  font-size: 1rem;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(47,111,106,0.08);
+  animation:
+    iconSpin 6.5s linear infinite,
+    iconFloat 2.8s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -0.7s), calc(var(--i) * 0.18s);
+}
+.spin-icon em {
+  font-style: normal;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5f726d;
+}
+.buffer-stage.is-done .spin-icon span {
+  animation: iconFloat 3.2s ease-in-out infinite;
+  color: #1f5f5a;
+  background: var(--accent-soft);
+}
+
+.punch-stage {
+  position: relative;
+  min-height: 3.4rem;
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: linear-gradient(120deg, rgba(47,111,106,0.08), rgba(58,125,140,0.06));
+  border: 1px solid #cfe3e1;
+  overflow: hidden;
+}
+.punch {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  top: 50%;
+  margin: 0;
+  transform: translateY(-50%);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.4;
+  color: #1c2b29;
+  opacity: 0;
+  animation: punchCycle 32s infinite;
+}
+.punch:nth-child(1) { animation-delay: 0s; }
+.punch:nth-child(2) { animation-delay: 4s; }
+.punch:nth-child(3) { animation-delay: 8s; }
+.punch:nth-child(4) { animation-delay: 12s; }
+.punch:nth-child(5) { animation-delay: 16s; }
+.punch:nth-child(6) { animation-delay: 20s; }
+.punch:nth-child(7) { animation-delay: 24s; }
+.punch:nth-child(8) { animation-delay: 28s; }
+.buffer-stage.is-done .punch {
+  animation: none;
+  opacity: 0;
+}
+.buffer-stage.is-done .punch:first-child {
+  opacity: 1;
+  position: relative;
+  left: 0;
+  right: 0;
+  top: 0;
+  transform: none;
+}
 
 div[data-testid="stRadio"] label p { font-weight: 600; }
 .stTextInput label, .stTextArea label, .stFileUploader label, .stRadio label {
@@ -1110,6 +1392,7 @@ button[data-testid="stBaseButton-primary"]:hover {
   .step-rail { grid-template-columns: 1fr; }
   .score-wrap, .results-hero { grid-template-columns: 1fr; justify-items: center; text-align: center; }
   .split-two, .salary-grid, .pack-grid { grid-template-columns: 1fr; }
+  .icon-orbit { grid-template-columns: repeat(3, 1fr); }
 }
 </style>
 """
