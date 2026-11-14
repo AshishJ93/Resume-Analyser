@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      :root {
+        --ink: #1a1d23;
+        --muted: #6b7280;
+        --line: #d9dee5;
+        --soft: #f4f6f8;
+        --accent: #2f6f6a;
+        --accent-soft: #e7f2f1;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        font-family: "Manrope", "Segoe UI", sans-serif;
+      }
+      .zone {
+        border: 1.5px dashed var(--line);
+        border-radius: 14px;
+        background: var(--soft);
+        min-height: 112px;
+        padding: 1rem 1.1rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 0.35rem;
+        cursor: pointer;
+        transition: border-color 0.2s ease, background 0.2s ease;
+        outline: none;
+      }
+      .zone:hover, .zone:focus {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .zone.has-image {
+        border-style: solid;
+        border-color: #b7d4d1;
+      }
+      .title {
+        color: var(--ink);
+        font-size: 0.92rem;
+        font-weight: 650;
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 0.8rem;
+        line-height: 1.4;
+      }
+      .preview {
+        margin-top: 0.55rem;
+        max-height: 96px;
+        width: fit-content;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+      }
+      .ok {
+        color: var(--accent);
+        font-size: 0.78rem;
+        font-weight: 650;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="zone" id="zone" tabindex="0">
+      <div class="title" id="label">Paste a screenshot</div>
+      <div class="hint">Click here, then press Ctrl+V (Cmd+V on Mac). PNG/JPG from LinkedIn, Naukri, etc.</div>
+      <div class="ok" id="status" hidden>Screenshot captured</div>
+      <img class="preview" id="preview" alt="" hidden />
+    </div>
+    <script>
+      const zone = document.getElementById("zone");
+      const labelEl = document.getElementById("label");
+      const statusEl = document.getElementById("status");
+      const preview = document.getElementById("preview");
+
+      function sendMessage(type, data) {
+        window.parent.postMessage(
+          Object.assign({ isStreamlitMessage: true, type: type }, data || {}),
+          "*"
+        );
+      }
+
+      function setFrameHeight() {
+        const height = Math.max(document.body.scrollHeight, 130);
+        sendMessage("streamlit:setFrameHeight", { height: height });
+      }
+
+      function setValue(value) {
+        sendMessage("streamlit:setComponentValue", { value: value });
+      }
+
+      function acceptImage(file) {
+        if (!file || !String(file.type || "").startsWith("image/")) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result;
+          preview.src = dataUrl;
+          preview.hidden = false;
+          statusEl.hidden = false;
+          zone.classList.add("has-image");
+          setValue({
+            data: dataUrl,
+            type: file.type,
+            name: file.name || "pasted-screenshot.png",
+          });
+          setFrameHeight();
+        };
+        reader.readAsDataURL(file);
+      }
+
+      zone.addEventListener("click", () => zone.focus());
+
+      zone.addEventListener("paste", (event) => {
+        const items = event.clipboardData && event.clipboardData.items;
+        if (!items) return;
+        for (const item of items) {
+          if (item.type && item.type.startsWith("image/")) {
+            event.preventDefault();
+            acceptImage(item.getAsFile());
+            break;
+          }
+        }
+      });
+
+      zone.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        zone.style.borderColor = "#2f6f6a";
+      });
+      zone.addEventListener("dragleave", () => {
+        zone.style.borderColor = "";
+      });
+      zone.addEventListener("drop", (event) => {
+        event.preventDefault();
+        zone.style.borderColor = "";
+        const file = event.dataTransfer.files && event.dataTransfer.files[0];
+        acceptImage(file);
+      });
+
+      window.addEventListener("message", (event) => {
+        if (!event.data || event.data.type !== "streamlit:render") return;
+        const args = event.data.args || {};
+        if (args.label) labelEl.textContent = args.label;
+        setFrameHeight();
+      });
+
+      sendMessage("streamlit:componentReady", { apiVersion: 1 });
+      setFrameHeight();
+    </script>
+  </body>
+</html>

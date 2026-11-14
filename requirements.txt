@@ -2,3 +2,5 @@ streamlit>=1.44
 openai>=1.40
 pypdf>=5.0
 python-dotenv>=1.0
+Pillow>=10.0
+reportlab>=4.2
