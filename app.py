@@ -758,14 +758,14 @@ render_html(
   <h1 class="brand-mark">Resume <span>Analyser</span></h1>
   <div class="tricolor-rule" aria-hidden="true"></div>
   <p class="brand-sub">
-    Built for Naukri, LinkedIn India, and Tier-1 to Tier-3 hiring.
-    Paste a JD screenshot, fit your resume, and walk into applications with clarity.
+    Turn any job posting into a fitted resume pack.
+    Score ATS fit, fill keyword gaps, download templates, and send with confidence.
   </p>
 </section>
 <div class="story-strip">
-  <div class="story-beat"><strong>See</strong><span>Match your resume to Indian JDs, screenshots included.</span></div>
+  <div class="story-beat"><strong>See</strong><span>Match your resume to a real job posting, screenshots included.</span></div>
   <div class="story-beat"><strong>Fit</strong><span>Keywords woven in. Full career history kept.</span></div>
-  <div class="story-beat"><strong>Send</strong><span>Templates, cover letter, and India LPA bands.</span></div>
+  <div class="story-beat"><strong>Send</strong><span>Templates, cover letter, and India salary bands.</span></div>
 </div>
 """
 )
@@ -823,7 +823,7 @@ with input_col:
         render_html(
             '<p class="section-label">Step 1b</p>'
             '<p class="panel-title">Job description</p>'
-            '<p class="hint-line">Paste a screenshot from LinkedIn, Naukri, or Indeed — or skip and score by role alone.</p>'
+            '<p class="hint-line">Paste a screenshot of any job posting — or skip and score by role alone.</p>'
         )
         jd_mode = st.radio(
             "JD input",
@@ -1170,7 +1170,7 @@ render_html(
     """
     <div class="india-footer">
       <span class="tricolor-dot" aria-hidden="true"></span>
-      <div><strong>Made in India</strong> · Built for Naukri, LinkedIn India, and Tier-1 to Tier-3 careers.</div>
+      <div><strong>Made in India</strong> · Built to fit your resume to the role you want next.</div>
     </div>
     """
 )
