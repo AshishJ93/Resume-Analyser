@@ -751,17 +751,21 @@ inject_styles()
 render_html(
     """
 <section class="brand-hero">
-  <div class="brand-kicker">Made for your next offer</div>
+  <div class="india-badge-row">
+    <div class="made-in-india"><span class="tricolor-dot" aria-hidden="true"></span>Made in India</div>
+    <div class="brand-kicker">For Indian job seekers</div>
+  </div>
   <h1 class="brand-mark">Resume <span>Analyser</span></h1>
+  <div class="tricolor-rule" aria-hidden="true"></div>
   <p class="brand-sub">
-    Paste a Naukri or LinkedIn screenshot. Leave with a fitted resume, cover letter,
-    and the confidence that ATS will finally see you.
+    Built for Naukri, LinkedIn India, and Tier-1 to Tier-3 hiring.
+    Paste a JD screenshot, fit your resume, and walk into applications with clarity.
   </p>
 </section>
 <div class="story-strip">
-  <div class="story-beat"><strong>See</strong><span>Your resume against the real JD — including screenshots.</span></div>
-  <div class="story-beat"><strong>Fit</strong><span>Keywords woven in. Full history kept. Never truncated.</span></div>
-  <div class="story-beat"><strong>Send</strong><span>Templates, cover letter, and India salary bands — ready.</span></div>
+  <div class="story-beat"><strong>See</strong><span>Match your resume to Indian JDs, screenshots included.</span></div>
+  <div class="story-beat"><strong>Fit</strong><span>Keywords woven in. Full career history kept.</span></div>
+  <div class="story-beat"><strong>Send</strong><span>Templates, cover letter, and India LPA bands.</span></div>
 </div>
 """
 )
@@ -1161,3 +1165,12 @@ else:
                 subtitle="Same list checks off while we prepare your pack.",
             )
         )
+
+render_html(
+    """
+    <div class="india-footer">
+      <span class="tricolor-dot" aria-hidden="true"></span>
+      <div><strong>Made in India</strong> · Built for Naukri, LinkedIn India, and Tier-1 to Tier-3 careers.</div>
+    </div>
+    """
+)

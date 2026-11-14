@@ -8,9 +8,12 @@ STYLE_HTML = r"""
   --ink: #0f1419;
   --muted: #5a6670;
   --line: #dde3e8;
-  --accent: #2a6a66;
-  --accent-2: #3a7d8c;
-  --accent-soft: #e6f1f0;
+  --accent: #0f6b4c;
+  --accent-2: #c45c14;
+  --accent-soft: #e7f3ee;
+  --saffron: #e07a2f;
+  --india-green: #0f6b4c;
+  --india-navy: #0b3a5b;
   --warn: #9a7040;
   --bad: #a84848;
   --shadow: 0 24px 60px rgba(15, 20, 25, 0.08);
@@ -45,11 +48,11 @@ html, body {
   z-index: 0;
   pointer-events: none !important;
   background:
-    radial-gradient(ellipse 60% 48% at 10% 6%, rgba(42,106,102,0.28), transparent 60%),
-    radial-gradient(ellipse 52% 42% at 92% 10%, rgba(58,125,140,0.20), transparent 58%),
-    radial-gradient(ellipse 48% 38% at 72% 90%, rgba(42,106,102,0.12), transparent 62%),
-    radial-gradient(ellipse 42% 34% at 18% 78%, rgba(15,20,25,0.05), transparent 65%),
-    linear-gradient(165deg, #e6eded 0%, #f4f7f7 46%, #e9efef 100%);
+    radial-gradient(ellipse 58% 46% at 8% 4%, rgba(224,122,47,0.16), transparent 58%),
+    radial-gradient(ellipse 54% 44% at 92% 8%, rgba(15,107,76,0.22), transparent 58%),
+    radial-gradient(ellipse 46% 36% at 78% 92%, rgba(11,58,91,0.10), transparent 60%),
+    radial-gradient(ellipse 40% 32% at 16% 80%, rgba(15,20,25,0.04), transparent 65%),
+    linear-gradient(165deg, #efe8e0 0%, #f5f7f5 48%, #e9efeb 100%);
   background-size: 135% 135%, 125% 125%, 140% 140%, 120% 120%, 100% 100%;
   animation: auroraShift 22s ease-in-out infinite alternate;
 }
@@ -108,20 +111,49 @@ section.main,
   animation: rise 0.8s cubic-bezier(.22,1,.36,1) both;
 }
 
-.brand-kicker {
-  display: inline-flex;
-  width: fit-content;
+.india-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
   margin: 0 0 1rem;
+}
+
+.brand-kicker,
+.made-in-india {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: fit-content;
   padding: 0.35rem 0.85rem;
   border-radius: 999px;
-  background: rgba(255,255,255,0.55);
-  border: 1px solid rgba(42,106,102,0.2);
+  background: rgba(255,255,255,0.62);
   backdrop-filter: blur(10px);
-  color: var(--accent);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.brand-kicker {
+  border: 1px solid rgba(15,107,76,0.22);
+  color: var(--india-green);
+}
+
+.made-in-india {
+  border: 1px solid rgba(224,122,47,0.28);
+  color: #9a4d12;
+}
+
+.tricolor-dot {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(15,20,25,0.08);
+  background:
+    linear-gradient(#ff9933 0 33%, #ffffff 33% 66%, #138808 66% 100%);
+  flex-shrink: 0;
 }
 
 .brand-mark {
@@ -132,11 +164,11 @@ section.main,
   line-height: 0.98;
   color: var(--ink);
   margin: 0;
-  max-width: 11ch;
+  max-width: 12ch;
 }
 
 .brand-mark span {
-  background: linear-gradient(120deg, #2a6a66, #3a7d8c 55%, #2a6a66);
+  background: linear-gradient(120deg, #0f6b4c, #c45c14 55%, #0b3a5b);
   background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -146,11 +178,40 @@ section.main,
 
 .brand-sub {
   margin: 1.1rem 0 0;
-  max-width: 28rem;
+  max-width: 32rem;
   color: var(--muted);
   font-size: 1.12rem;
   line-height: 1.55;
   animation: rise 1s cubic-bezier(.22,1,.36,1) both;
+}
+
+.tricolor-rule {
+  width: min(220px, 55%);
+  height: 4px;
+  margin: 1rem 0 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff9933 0 33%, #ffffff 33% 66%, #138808 66% 100%);
+  box-shadow: 0 0 0 1px rgba(15,20,25,0.06);
+}
+
+.india-footer {
+  margin-top: 2rem;
+  padding: 1rem 1.15rem;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(15,20,25,0.06);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.india-footer strong {
+  color: var(--ink);
+  font-family: "Space Grotesk", sans-serif;
+  letter-spacing: -0.02em;
 }
 
 .story-strip {
@@ -759,7 +820,7 @@ div[data-testid="stFileUploader"] section {
 }
 button[kind="primary"],
 button[data-testid="stBaseButton-primary"] {
-  background: linear-gradient(120deg, #2a6a66, #3a7d8c) !important;
+  background: linear-gradient(120deg, #0f6b4c, #c45c14) !important;
   border: none !important;
   border-radius: 14px !important;
   color: #fff !important;
