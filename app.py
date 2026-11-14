@@ -29,35 +29,61 @@ except Exception:
         return None
 
 
-ANALYSIS_SCHEMA_HINT = {
+FIT_SCHEMA_HINT = {
     "ats_score": 0,
     "verdict": "one sentence",
     "strengths": ["...", "...", "..."],
     "improvements": ["...", "...", "..."],
     "missing_keywords": ["keyword1", "keyword2"],
+    "india_salary": {
+        "currency": "INR LPA",
+        "role_level_assumption": "e.g. mid-level 4-7 YOE",
+        "tier1": {
+            "cities": "Bengaluru, Mumbai, Delhi-NCR, Hyderabad, Pune, Chennai",
+            "average_lpa": "18-28",
+            "typical_range_lpa": "15-35",
+        },
+        "tier2": {
+            "cities": "Ahmedabad, Jaipur, Kochi, Chandigarh, Indore, Coimbatore",
+            "average_lpa": "12-20",
+            "typical_range_lpa": "10-24",
+        },
+        "tier3": {
+            "cities": "smaller metros / emerging cities",
+            "average_lpa": "8-14",
+            "typical_range_lpa": "6-16",
+        },
+        "disclaimer": "Indicative India market ranges; actual offers vary by company, skills, and negotiation.",
+    },
+}
+
+RESUME_SCHEMA_HINT = {
     "updated_resume": {
         "full_name": "Full Name",
         "headline": "Target role headline",
-        "summary": "3-4 sentence professional summary including missing keywords naturally",
+        "summary": "3-5 sentence summary weaving missing keywords naturally",
         "contact": {
             "email": "",
             "phone": "",
             "location": "",
             "linkedin": "",
         },
-        "skills": ["skill1", "skill2"],
+        "skills": ["include original skills plus missing keywords where truthful"],
         "experience": [
             {
                 "title": "Job title",
                 "company": "Company",
                 "dates": "YYYY – YYYY",
-                "bullets": ["impact bullet with metrics", "another bullet"],
+                "bullets": [
+                    "Keep every original role. Improve wording; do not drop jobs or bullets casually.",
+                    "Weave missing keywords only where truthful.",
+                ],
             }
         ],
         "projects": [
             {
                 "name": "Project",
-                "description": "short description",
+                "description": "keep original projects",
                 "bullets": ["outcome"],
             }
         ],
@@ -68,7 +94,16 @@ ANALYSIS_SCHEMA_HINT = {
                 "dates": "YYYY – YYYY",
             }
         ],
-    },
+        "certifications": ["keep all"],
+        "awards": ["keep all"],
+        "languages": ["keep all"],
+        "additional_sections": [
+            {"title": "Any other original section", "items": ["keep content"]}
+        ],
+    }
+}
+
+COVER_SCHEMA_HINT = {
     "cover_letter": "Full cover letter text with paragraphs separated by newlines",
 }
 
@@ -160,34 +195,11 @@ def extract_text_from_image_bytes(image_bytes: bytes, mime: str = "image/png") -
     return (response.choices[0].message.content or "").strip()
 
 
-def analyze_and_upgrade(
-    resume_text: str, target_role: str, job_description: str
-) -> dict:
+def _chat_json(system_prompt: str, user_prompt: str, temperature: float = 0.3) -> dict:
     client = get_client()
-    system_prompt = (
-        "You are an expert ATS resume strategist, recruiter, and career writer. "
-        "Return ONLY valid JSON. No markdown fences, no commentary. "
-        f"Use exactly this shape: {json.dumps(ANALYSIS_SCHEMA_HINT)}. "
-        "ats_score must be an integer from 0 to 100 estimating ATS / role match. "
-        "verdict must be one sentence. "
-        "strengths and improvements must each contain exactly 3 concise items. "
-        "missing_keywords must list important role/JD keywords missing or weak in the resume. "
-        "updated_resume must be a complete, professional resume rewrite that naturally "
-        "weaves in the missing keywords without stuffing, keeps truthful experience from the "
-        "source resume, improves bullets with clarity and metrics where reasonable, and "
-        "targets the role. Preserve contact details found in the resume; use empty strings "
-        "if unknown. "
-        "cover_letter must be a polished 3–5 paragraph cover letter tailored to the role "
-        "and JD, written in first person, ready to send."
-    )
-    user_prompt = (
-        f"Target role:\n{target_role.strip()}\n\n"
-        f"Job description:\n{(job_description or '').strip() or '(not provided)'}\n\n"
-        f"Resume:\n{resume_text.strip()}"
-    )
     response = client.chat.completions.create(
         model=os.getenv("XAI_MODEL", "grok-4.3"),
-        temperature=0.35,
+        temperature=temperature,
         response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": system_prompt},
@@ -195,10 +207,141 @@ def analyze_and_upgrade(
         ],
     )
     content = response.choices[0].message.content or "{}"
-    data = parse_model_json(content)
+    return parse_model_json(content)
+
+
+def analyze_fit_and_market(
+    resume_text: str, target_role: str, job_description: str
+) -> dict:
+    system_prompt = (
+        "You are an expert ATS strategist and India compensation researcher. "
+        "Return ONLY valid JSON. No markdown fences. "
+        f"Use exactly this shape: {json.dumps(FIT_SCHEMA_HINT)}. "
+        "ats_score is 0-100. verdict is one sentence. "
+        "strengths and improvements: exactly 3 items each. "
+        "missing_keywords: important role/JD terms missing or weak in the resume. "
+        "india_salary: realistic current India CTC bands in LPA for this target role, "
+        "split by Tier-1 / Tier-2 / Tier-3 cities. Infer seniority from the resume. "
+        "Be practical and market-aware; ranges may be strings like '18-28'."
+    )
+    user_prompt = (
+        f"Target role:\n{target_role.strip()}\n\n"
+        f"Job description:\n{(job_description or '').strip() or '(not provided)'}\n\n"
+        f"Resume:\n{resume_text.strip()}"
+    )
+    data = _chat_json(system_prompt, user_prompt, temperature=0.25)
     if "ats_score" not in data and "score" in data:
         data["ats_score"] = data["score"]
     return data
+
+
+def rewrite_full_resume(
+    resume_text: str,
+    target_role: str,
+    job_description: str,
+    missing_keywords: list,
+) -> dict:
+    system_prompt = (
+        "You are an expert resume writer. Return ONLY valid JSON. No markdown fences. "
+        f"Use exactly this shape: {json.dumps(RESUME_SCHEMA_HINT)}. "
+        "CRITICAL RULES — DO NOT TRUNCATE:\n"
+        "1) Preserve ALL original experience roles, projects, education entries, "
+        "certifications, awards, languages, and other sections from the source resume.\n"
+        "2) Do NOT drop jobs, merge away history, or shorten the resume into a summary. "
+        "The updated resume must be at least as complete as the source.\n"
+        "3) Keep original facts truthful. You may polish wording and add clarity/metrics "
+        "only when reasonably implied; never invent employers or degrees.\n"
+        "4) Weave missing_keywords naturally into summary, skills, and relevant bullets "
+        "without keyword stuffing.\n"
+        "5) Preserve contact details found in the source; use empty strings if unknown.\n"
+        "6) If the source has extra sections, put them in additional_sections.\n"
+        "7) Prefer more complete bullets over fewer polished ones."
+    )
+    keywords = ", ".join(str(k) for k in (missing_keywords or []) if str(k).strip())
+    user_prompt = (
+        f"Target role:\n{target_role.strip()}\n\n"
+        f"Job description:\n{(job_description or '').strip() or '(not provided)'}\n\n"
+        f"Missing keywords to weave in:\n{keywords or '(none)'}\n\n"
+        f"SOURCE RESUME (preserve all content; update and enrich, do not trim):\n"
+        f"{resume_text.strip()}"
+    )
+    data = _chat_json(system_prompt, user_prompt, temperature=0.3)
+    return data.get("updated_resume") or data
+
+
+def write_cover_letter(
+    resume_text: str,
+    target_role: str,
+    job_description: str,
+    updated_resume: dict,
+) -> str:
+    system_prompt = (
+        "You are an expert career writer. Return ONLY valid JSON. No markdown fences. "
+        f"Use exactly this shape: {json.dumps(COVER_SCHEMA_HINT)}. "
+        "cover_letter must be a polished 3–5 paragraph letter tailored to the role and JD, "
+        "first person, ready to send. Reference real experience from the resume."
+    )
+    user_prompt = (
+        f"Target role:\n{target_role.strip()}\n\n"
+        f"Job description:\n{(job_description or '').strip() or '(not provided)'}\n\n"
+        f"Updated resume JSON:\n{json.dumps(updated_resume)[:12000]}\n\n"
+        f"Original resume excerpt:\n{resume_text.strip()[:8000]}"
+    )
+    data = _chat_json(system_prompt, user_prompt, temperature=0.4)
+    return str(data.get("cover_letter") or "").strip()
+
+
+def run_analysis_pipeline(
+    resume_text: str, target_role: str, job_description: str
+) -> dict:
+    """Multi-step analysis with a visible timeline in the Streamlit UI."""
+    result: dict = {}
+    with st.status("Preparing your application pack…", expanded=True) as status:
+        st.write("**1 · Scoring ATS fit** against your target role and JD")
+        fit = analyze_fit_and_market(resume_text, target_role, job_description)
+        result.update(fit)
+        st.write(
+            f"ATS score ready: **{fit.get('ats_score', '—')}**. "
+            f"Found **{len(fit.get('missing_keywords') or [])}** keyword gaps."
+        )
+
+        st.write("**2 · Mapping India salary bands** (Tier-1 / Tier-2 / Tier-3 cities)")
+        if result.get("india_salary"):
+            tier1 = (result["india_salary"].get("tier1") or {}).get("average_lpa", "—")
+            st.write(f"Tier-1 average band: **{tier1} LPA** (indicative)")
+        else:
+            st.write("Salary bands attached to results.")
+
+        st.write(
+            "**3 · Updating your full resume** — keeping all roles & sections, "
+            "weaving in missing keywords (not truncating)"
+        )
+        updated = rewrite_full_resume(
+            resume_text,
+            target_role,
+            job_description,
+            fit.get("missing_keywords") or [],
+        )
+        result["updated_resume"] = updated
+        roles = len((updated or {}).get("experience") or [])
+        st.write(f"Resume draft ready with **{roles}** experience entries preserved/updated.")
+
+        st.write("**4 · Drafting your cover letter**")
+        result["cover_letter"] = write_cover_letter(
+            resume_text, target_role, job_description, updated
+        )
+        st.write("Cover letter ready.")
+
+        st.write(
+            "**Done.** Next: open each results tab — "
+            "ATS score → Missing keywords → Updated resume → Templates → Cover letter → India salary."
+        )
+        status.update(
+            label="Pack ready — explore the tabs below",
+            state="complete",
+            expanded=True,
+        )
+    return result
 
 
 def score_color(score: int) -> str:
@@ -407,6 +550,7 @@ def inject_styles() -> None:
 .st-key-cover-panel,
 .st-key-score-panel,
 .st-key-keywords-panel,
+.st-key-salary-panel,
 .st-key-empty-panel {
   background: rgba(255,255,255,0.82);
   border: 1px solid rgba(228,232,238,0.98);
@@ -671,14 +815,89 @@ button[data-testid="stBaseButton-primary"]:hover {
   filter: brightness(1.05) !important;
   transform: translateY(-1px) !important;
 }
+[data-testid="stTabs"] button {
+  font-size: 1.08rem !important;
+  font-weight: 700 !important;
+  padding: 0.75rem 1.05rem !important;
+}
+[data-testid="stTabs"] button p {
+  font-size: 1.08rem !important;
+  font-weight: 700 !important;
+}
 [data-testid="stTabs"] button[aria-selected="true"] {
   color: var(--accent) !important;
+}
+[data-testid="stTabs"] button[aria-selected="true"] p {
+  color: var(--accent) !important;
+}
+
+.done-guide {
+  margin: 0 0 1rem;
+  padding: 1rem 1.15rem;
+  border-radius: 16px;
+  background: linear-gradient(120deg, rgba(47,111,106,0.10), rgba(58,125,140,0.08));
+  border: 1px solid #cfe3e1;
+  animation: rise 0.55s ease both;
+}
+.done-guide strong {
+  display: block;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.05rem;
+  margin-bottom: 0.35rem;
+  color: var(--ink);
+}
+.done-guide p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.done-guide ol {
+  margin: 0.55rem 0 0;
+  padding-left: 1.15rem;
+  color: var(--ink);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.salary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.salary-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.95rem 1rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f6f8f9 100%);
+}
+.salary-card h4 {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+.salary-card .band {
+  margin: 0.45rem 0 0.25rem;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.03em;
+}
+.salary-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 
 @media (max-width: 900px) {
   .step-rail { grid-template-columns: 1fr; }
   .score-wrap { grid-template-columns: 1fr; justify-items: center; text-align: center; }
   .split-two { grid-template-columns: 1fr; }
+  .salary-grid { grid-template-columns: 1fr; }
 }
 </style>
 """
@@ -741,7 +960,71 @@ def format_updated_resume_text(resume: dict) -> str:
             lines.append(f"{degree} — {school}".strip(" —"))
             if dates:
                 lines.append(dates)
+        lines.append("")
+    if resume.get("certifications"):
+        lines.extend(
+            [
+                "CERTIFICATIONS",
+                " · ".join(str(c) for c in resume["certifications"]),
+                "",
+            ]
+        )
+    if resume.get("awards"):
+        lines.append("AWARDS")
+        for award in resume["awards"]:
+            lines.append(f"• {award}")
+        lines.append("")
+    if resume.get("languages"):
+        lines.extend(
+            ["LANGUAGES", " · ".join(str(lang) for lang in resume["languages"]), ""]
+        )
+    for section in resume.get("additional_sections") or []:
+        title = section.get("title") or "ADDITIONAL"
+        lines.append(str(title).upper())
+        if section.get("content"):
+            lines.append(str(section["content"]))
+        for item in section.get("items") or []:
+            lines.append(f"• {item}")
+        lines.append("")
     return "\n".join(lines).strip()
+
+
+def render_salary_block(salary: dict | None, target_role: str) -> str:
+    salary = salary or {}
+    assumption = html.escape(str(salary.get("role_level_assumption") or "Based on resume seniority"))
+    disclaimer = html.escape(
+        str(
+            salary.get("disclaimer")
+            or "Indicative India market ranges in INR LPA; actual offers vary."
+        )
+    )
+    role = html.escape(target_role or "this role")
+
+    def card(tier_key: str, label: str) -> str:
+        tier = salary.get(tier_key) or {}
+        cities = html.escape(str(tier.get("cities") or "—"))
+        avg = html.escape(str(tier.get("average_lpa") or "—"))
+        rng = html.escape(str(tier.get("typical_range_lpa") or avg))
+        return (
+            f'<div class="salary-card">'
+            f"<h4>{label}</h4>"
+            f'<div class="band">{avg} LPA</div>'
+            f"<p>Typical range: {rng} LPA</p>"
+            f"<p>{cities}</p>"
+            f"</div>"
+        )
+
+    return f"""
+    <p class="section-label">Compensation</p>
+    <p class="panel-title">Average package in India · {role}</p>
+    <p class="hint-line">{assumption}. Figures are indicative CTC in Lakh per annum.</p>
+    <div class="salary-grid">
+      {card("tier1", "Tier-1 cities")}
+      {card("tier2", "Tier-2 cities")}
+      {card("tier3", "Tier-3 cities")}
+    </div>
+    <p class="hint-line" style="margin-top:0.85rem;">{disclaimer}</p>
+    """
 
 
 def render_insight_rows(items: list, kind: str) -> str:
@@ -777,6 +1060,8 @@ for key, default in {
     "pending_analysis": None,
     "analysis_error": None,
     "selected_template": "modern",
+    "show_done_guide": False,
+    "analyzed_role": "",
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -921,6 +1206,7 @@ with meta_col:
               <div class="insight-row strength"><span>3</span><span>Updated resume with those keywords</span></div>
               <div class="insight-row strength"><span>4</span><span>Five professional PDF templates</span></div>
               <div class="insight-row strength"><span>5</span><span>Tailored cover letter</span></div>
+              <div class="insight-row strength"><span>6</span><span>India Tier-1/2/3 salary bands</span></div>
             </div>
             """
         )
@@ -965,21 +1251,15 @@ render_html('<p class="section-label">Step 3 · Results</p>')
 
 pending = st.session_state.pending_analysis
 if pending:
-    render_html(
-        """
-        <div class="loading-box">
-          <div class="loading-spinner"></div>
-          <p>Scoring ATS fit, finding gaps, and drafting your updated pack…</p>
-        </div>
-        """
-    )
     try:
-        st.session_state.analysis = analyze_and_upgrade(
+        st.session_state.analysis = run_analysis_pipeline(
             resume_text=pending["resume_text"],
             target_role=pending["target_role"],
             job_description=pending["job_description"],
         )
         st.session_state.analysis_error = None
+        st.session_state.show_done_guide = True
+        st.session_state.analyzed_role = pending["target_role"]
     except Exception as exc:
         st.session_state.analysis = None
         st.session_state.analysis_error = str(exc)
@@ -999,14 +1279,41 @@ if analysis:
     updated = analysis.get("updated_resume") or {}
     cover_letter = str(analysis.get("cover_letter") or "").strip()
     missing = analysis.get("missing_keywords") or []
+    target_for_salary = st.session_state.get("analyzed_role") or ""
 
-    tab_score, tab_keywords, tab_resume, tab_templates, tab_cover = st.tabs(
+    if st.session_state.get("show_done_guide", True):
+        render_html(
+            f"""
+            <div class="done-guide">
+              <strong>Your pack is ready</strong>
+              <p>Everything below is prepared for you. Work through the tabs in this order:</p>
+              <ol>
+                <li><b>ATS score</b> — see your match and what to improve</li>
+                <li><b>Missing keywords</b> — terms we wove into your resume</li>
+                <li><b>Updated resume</b> — full content kept, keywords added (not trimmed)</li>
+                <li><b>Templates</b> — pick a layout and download the PDF</li>
+                <li><b>Cover letter</b> — download and send with the resume</li>
+                <li><b>India salary</b> — Tier-1 / Tier-2 / Tier-3 package bands</li>
+              </ol>
+            </div>
+            """
+        )
+
+    (
+        tab_score,
+        tab_keywords,
+        tab_resume,
+        tab_templates,
+        tab_cover,
+        tab_salary,
+    ) = st.tabs(
         [
             "ATS score",
             "Missing keywords",
             "Updated resume",
             "Templates",
             "Cover letter",
+            "India salary",
         ]
     )
 
@@ -1046,7 +1353,7 @@ if analysis:
                 f"""
                 <p class="section-label">Gaps</p>
                 <p class="panel-title">Keywords to add</p>
-                <p class="hint-line">Weak or missing versus the role / JD. These are woven into the updated resume.</p>
+                <p class="hint-line">These were weak or missing versus the role / JD. They are woven into the updated resume without removing your existing content.</p>
                 {render_keywords(missing)}
                 """
             )
@@ -1057,8 +1364,8 @@ if analysis:
             render_html(
                 f"""
                 <p class="section-label">Rewrite</p>
-                <p class="panel-title">Keyword-optimized resume</p>
-                <p class="hint-line">Review the draft, then download text or pick a PDF template next.</p>
+                <p class="panel-title">Full resume · keywords added</p>
+                <p class="hint-line">All original roles and sections are kept and enriched — not truncated. Review, then download text or a PDF template.</p>
                 <div class="resume-preview">{html.escape(preview)}</div>
                 """
             )
@@ -1081,7 +1388,7 @@ if analysis:
                 f"""
                 <p class="section-label">Download</p>
                 <p class="panel-title">Choose a template</p>
-                <p class="hint-line">Five professional layouts for the updated resume.</p>
+                <p class="hint-line">PDFs use your full updated resume (multi-page if needed). Nothing is cut for length.</p>
                 <div class="template-grid">{cards}</div>
                 """
             )
@@ -1146,6 +1453,12 @@ if analysis:
             else:
                 render_html('<p class="empty-note">No cover letter was returned.</p>')
 
+    with tab_salary:
+        with st.container(key="salary-panel"):
+            render_html(
+                render_salary_block(analysis.get("india_salary"), target_for_salary)
+            )
+
 elif st.session_state.analysis_error:
     st.error(f"Analysis failed: {st.session_state.analysis_error}")
 else:
@@ -1154,7 +1467,7 @@ else:
             """
             <div class="placeholder">
               <div class="placeholder-mark">◈</div>
-              <p>Your ATS score, keyword gaps, updated resume, templates, and cover letter will appear here.</p>
+              <p>Your ATS score, keyword gaps, full updated resume, templates, cover letter, and India salary bands will appear here.</p>
             </div>
             """
         )

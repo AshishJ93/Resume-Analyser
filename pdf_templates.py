@@ -59,7 +59,14 @@ def _safe(value: Any, fallback: str = "") -> str:
     if value is None:
         return fallback
     text = str(value).strip()
-    return text or fallback
+    if not text:
+        return fallback
+    # ReportLab Paragraph is XML-based; escape user content.
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
 
 
 def _join_contact(contact: dict | None) -> str:
@@ -329,6 +336,32 @@ def build_resume_pdf(resume: dict, template_id: str = "modern") -> bytes:
     if resume.get("education"):
         story.extend(_section_title("Education", section_style))
         story.extend(_education_blocks(resume.get("education"), role_style, meta_style))
+
+    certifications = [_safe(c) for c in (resume.get("certifications") or []) if _safe(c)]
+    if certifications:
+        story.extend(_section_title("Certifications", section_style))
+        story.append(Paragraph(" · ".join(certifications), body_style))
+
+    awards = [_safe(a) for a in (resume.get("awards") or []) if _safe(a)]
+    if awards:
+        story.extend(_section_title("Awards", section_style))
+        story.extend(_bullets(awards, body_style))
+
+    languages = [_safe(lang) for lang in (resume.get("languages") or []) if _safe(lang)]
+    if languages:
+        story.extend(_section_title("Languages", section_style))
+        story.append(Paragraph(" · ".join(languages), body_style))
+
+    for section in resume.get("additional_sections") or []:
+        title = _safe(section.get("title"), "Additional")
+        items = section.get("items") or []
+        if not items and not _safe(section.get("content")):
+            continue
+        story.extend(_section_title(title, section_style))
+        content = _safe(section.get("content"))
+        if content:
+            story.append(Paragraph(content, body_style))
+        story.extend(_bullets(items, body_style))
 
     doc.build(story)
     return buffer.getvalue()
