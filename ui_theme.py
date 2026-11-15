@@ -113,29 +113,119 @@ section.main,
 
 .usage-banner {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem 0.7rem;
-  margin: 0 0 1.25rem;
-  padding: 0.7rem 1rem;
-  border: 1px solid rgba(15,107,76,0.18);
-  border-radius: 14px;
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(10px);
-  color: var(--muted);
-  font-size: 0.88rem;
-  line-height: 1.35;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin: 0 0 1.35rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
   animation: rise 0.9s cubic-bezier(.22,1,.36,1) both;
 }
 
-.usage-banner strong {
-  color: var(--india-navy);
-  font-weight: 700;
-  margin-right: 0.15rem;
+.usage-meters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem 1.35rem;
 }
 
-.usage-banner .usage-dot {
-  opacity: 0.45;
+.usage-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.usage-ring {
+  --usage-pct: 100;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(
+    var(--india-green) 0% calc(var(--usage-pct) * 1%),
+    rgba(15, 20, 25, 0.08) calc(var(--usage-pct) * 1%) 100%
+  );
+  box-shadow: 0 8px 22px rgba(15, 107, 76, 0.12);
+  transition: background 0.35s ease, box-shadow 0.35s ease, transform 0.35s ease;
+}
+
+.usage-ring-core {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.05rem;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--india-navy);
+  font-family: "Space Grotesk", sans-serif;
+  line-height: 1;
+}
+
+.usage-count {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.usage-max {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.usage-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.usage-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--india-navy);
+}
+
+.usage-status {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.usage-note {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.usage-meter.is-empty .usage-ring {
+  background: conic-gradient(
+    rgba(168, 72, 72, 0.55) 0% 100%
+  );
+  box-shadow: 0 8px 20px rgba(168, 72, 72, 0.12);
+}
+
+.usage-meter.is-empty .usage-ring-core {
+  color: var(--bad);
+}
+
+.usage-meter.is-empty .usage-label {
+  color: var(--bad);
+}
+
+.usage-meter.is-empty .usage-status {
+  color: #9a4a4a;
+  font-weight: 600;
+}
+
+.usage-note.is-done {
+  color: #9a4a4a;
+  font-weight: 600;
 }
 
 .india-badge-row {

@@ -13,13 +13,11 @@ from pypdf import PdfReader
 from pdf_templates import TEMPLATES, build_cover_letter_pdf, build_resume_pdf
 from ui_theme import inject_styles as inject_theme_styles
 from usage_limits import (
-    analyses_left,
     bootstrap_usage,
     can_analyse,
     can_download_resume,
     record_analysis,
     record_resume_download,
-    resume_downloads_left,
     usage_banner_html,
 )
 
@@ -892,12 +890,7 @@ with meta_col:
             disabled=not analyse_allowed,
         )
         if not analyse_allowed:
-            st.info(
-                f"Free explore limit reached ({analyses_left()} analyse runs left). "
-                "Refresh will not reset this browser’s quota."
-            )
-        else:
-            st.caption(f"{analyses_left()} free analyse run(s) left on this browser.")
+            st.info("Analyse limit reached on this browser. Refresh won’t reset it.")
         render_html(render_receive_checklist(title="You will receive"))
 
 if analyze:
@@ -1118,14 +1111,10 @@ if analysis:
                     key="dl_resume_txt",
                     on_click=record_resume_download,
                 )
-                st.caption(
-                    f"{resume_downloads_left()} updated-resume download(s) left "
-                    "(shared across .txt and PDF templates)."
-                )
             else:
                 st.info(
-                    "Free limit: 2 updated-resume downloads used on this browser. "
-                    "You can still explore ATS score, keywords, cover letter, and salary."
+                    "Download limit reached on this browser. "
+                    "ATS, keywords, cover letter, and salary stay available."
                 )
 
     elif view == "templates":
@@ -1169,10 +1158,6 @@ if analysis:
                         use_container_width=True,
                         key=f"dl_resume_pdf_{template_id}",
                         on_click=record_resume_download,
-                    )
-                    st.caption(
-                        f"{resume_downloads_left()} updated-resume download(s) left "
-                        "(shared across .txt and PDF templates)."
                     )
                 except Exception as exc:
                     st.error(f"Could not build PDF: {exc}")

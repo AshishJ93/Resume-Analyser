@@ -145,17 +145,47 @@ def record_resume_download() -> dict[str, Any]:
     return persist_usage(usage)
 
 
+def _circle_meter(left: int, limit: int, label: str, kind: str) -> str:
+    safe_limit = max(1, int(limit) or 1)
+    remaining = max(0, int(left))
+    pct = min(100, round(100 * remaining / safe_limit))
+    depleted = remaining <= 0
+    state = "is-empty" if depleted else "is-ready"
+    status = "Limit reached" if depleted else f"{remaining} left"
+    return f"""
+    <div class="usage-meter {state}" data-kind="{kind}" title="{label}: {status}">
+      <div class="usage-ring" style="--usage-pct:{pct};">
+        <div class="usage-ring-core">
+          <span class="usage-count">{remaining}</span>
+          <span class="usage-max">/{safe_limit}</span>
+        </div>
+      </div>
+      <div class="usage-meta">
+        <span class="usage-label">{label}</span>
+        <span class="usage-status">{status}</span>
+      </div>
+    </div>
+    """
+
+
 def usage_banner_html(usage: dict[str, Any] | None = None) -> str:
     usage = _normalize(usage or st.session_state.get("usage"))
     a_left = analyses_left(usage)
     d_left = resume_downloads_left(usage)
     a_max = max_analyses()
     d_max = max_resume_downloads()
+    both_empty = a_left <= 0 and d_left <= 0
+    note = (
+        '<p class="usage-note is-done">Free explore used up on this browser — you can still view results already generated.</p>'
+        if both_empty
+        else '<p class="usage-note">Small free trial on this browser. Counters drop as you analyse or download.</p>'
+    )
     return f"""
-    <div class="usage-banner">
-      <strong>Free explore limits</strong>
-      <span>{a_left}/{a_max} analyse runs left</span>
-      <span class="usage-dot">·</span>
-      <span>{d_left}/{d_max} updated-resume downloads left</span>
+    <div class="usage-banner" role="status" aria-live="polite">
+      <div class="usage-meters">
+        {_circle_meter(a_left, a_max, "Analyse", "analyse")}
+        {_circle_meter(d_left, d_max, "Downloads", "downloads")}
+      </div>
+      {note}
     </div>
     """
