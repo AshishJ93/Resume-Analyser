@@ -111,6 +111,33 @@ section.main,
   animation: rise 0.8s cubic-bezier(.22,1,.36,1) both;
 }
 
+.usage-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.7rem;
+  margin: 0 0 1.25rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid rgba(15,107,76,0.18);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(10px);
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.35;
+  animation: rise 0.9s cubic-bezier(.22,1,.36,1) both;
+}
+
+.usage-banner strong {
+  color: var(--india-navy);
+  font-weight: 700;
+  margin-right: 0.15rem;
+}
+
+.usage-banner .usage-dot {
+  opacity: 0.45;
+}
+
 .india-badge-row {
   display: flex;
   flex-wrap: wrap;

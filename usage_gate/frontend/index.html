@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      html, body { margin: 0; padding: 0; height: 0; overflow: hidden; background: transparent; }
+    </style>
+  </head>
+  <body>
+    <script>
+      const STORAGE_KEY = "ra_visitor_usage_v1";
+
+      function sendMessage(type, data) {
+        window.parent.postMessage(
+          Object.assign({ isStreamlitMessage: true, type: type }, data || {}),
+          "*"
+        );
+      }
+
+      function uuid() {
+        if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+        return "v-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+      }
+
+      function normalize(raw) {
+        const base = { visitor_id: uuid(), analyses: 0, resume_downloads: 0 };
+        if (!raw || typeof raw !== "object") return base;
+        const analyses = Number(raw.analyses);
+        const downloads = Number(raw.resume_downloads);
+        return {
+          visitor_id: String(raw.visitor_id || base.visitor_id),
+          analyses: Number.isFinite(analyses) ? Math.max(0, Math.floor(analyses)) : 0,
+          resume_downloads: Number.isFinite(downloads)
+            ? Math.max(0, Math.floor(downloads))
+            : 0,
+        };
+      }
+
+      function readUsage() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) {
+            const fresh = normalize(null);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
+            return fresh;
+          }
+          return normalize(JSON.parse(raw));
+        } catch (e) {
+          return normalize(null);
+        }
+      }
+
+      function writeUsage(next) {
+        const usage = normalize(next);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(usage));
+        } catch (e) {}
+        return usage;
+      }
+
+      function publish(usage) {
+        sendMessage("streamlit:setComponentValue", { value: usage });
+        sendMessage("streamlit:setFrameHeight", { height: 0 });
+      }
+
+      window.addEventListener("message", (event) => {
+        if (!event.data || event.data.type !== "streamlit:render") return;
+        const args = event.data.args || {};
+        let usage = readUsage();
+        if (args.write) {
+          const incoming = normalize(args.write);
+          usage = writeUsage({
+            visitor_id: incoming.visitor_id || usage.visitor_id,
+            analyses: Math.max(usage.analyses, incoming.analyses),
+            resume_downloads: Math.max(
+              usage.resume_downloads,
+              incoming.resume_downloads
+            ),
+          });
+        }
+        publish(usage);
+      });
+
+      sendMessage("streamlit:componentReady", { apiVersion: 1 });
+      publish(readUsage());
+    </script>
+  </body>
+</html>

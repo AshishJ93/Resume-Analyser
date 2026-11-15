@@ -12,6 +12,16 @@ from pypdf import PdfReader
 
 from pdf_templates import TEMPLATES, build_cover_letter_pdf, build_resume_pdf
 from ui_theme import inject_styles as inject_theme_styles
+from usage_limits import (
+    analyses_left,
+    bootstrap_usage,
+    can_analyse,
+    can_download_resume,
+    record_analysis,
+    record_resume_download,
+    resume_downloads_left,
+    usage_banner_html,
+)
 
 load_dotenv()
 
@@ -746,6 +756,7 @@ for key, default in {
     if key not in st.session_state:
         st.session_state[key] = default
 
+usage = bootstrap_usage()
 inject_styles()
 
 render_html(
@@ -762,6 +773,9 @@ render_html(
     Score ATS fit, fill keyword gaps, download templates, and send with confidence.
   </p>
 </section>
+"""
+    + usage_banner_html(usage)
+    + """
 <div class="story-strip">
   <div class="story-beat"><strong>See</strong><span>Match your resume to a real job posting, screenshots included.</span></div>
   <div class="story-beat"><strong>Fit</strong><span>Keywords woven in. Full career history kept.</span></div>
@@ -870,11 +884,26 @@ with meta_col:
             placeholder="e.g. Senior Product Manager",
             label_visibility="collapsed",
         )
-        analyze = st.button("Analyse resume", type="primary", use_container_width=True)
+        analyse_allowed = can_analyse()
+        analyze = st.button(
+            "Analyse resume",
+            type="primary",
+            use_container_width=True,
+            disabled=not analyse_allowed,
+        )
+        if not analyse_allowed:
+            st.info(
+                f"Free explore limit reached ({analyses_left()} analyse runs left). "
+                "Refresh will not reset this browser’s quota."
+            )
+        else:
+            st.caption(f"{analyses_left()} free analyse run(s) left on this browser.")
         render_html(render_receive_checklist(title="You will receive"))
 
 if analyze:
-    if not target_role.strip():
+    if not can_analyse():
+        st.warning("Free analyse limit reached for this browser.")
+    elif not target_role.strip():
         st.warning("Add a target role to continue.")
     elif not get_xai_api_key():
         st.error(
@@ -882,41 +911,57 @@ if analyze:
             '(XAI_API_KEY = "xai-...") or in your local .env before analysing.'
         )
     else:
-        try:
-            with st.spinner("Reading your documents…"):
-                resume_text = resolve_source_text(
-                    resume_mode,
-                    resume_file,
-                    resume_paste,
-                    resume_typed,
-                )
-                if jd_mode == "Skip":
-                    job_description = ""
-                else:
-                    job_description = resolve_source_text(
-                        "Image" if jd_mode == "Image" else "Text",
-                        jd_file,
-                        jd_paste,
-                        jd_typed,
-                    )
-            if not resume_text.strip():
-                st.warning("Add a resume via PDF, image, or text first.")
-            elif len(resume_text.split()) < 40:
+        has_resume_input = (
+            (resume_mode == "PDF" and resume_file is not None)
+            or (resume_mode == "Image" and (resume_file is not None or resume_paste))
+            or (resume_mode == "Text" and len((resume_typed or "").split()) >= 40)
+        )
+        if not has_resume_input:
+            if resume_mode == "Text" and (resume_typed or "").strip():
                 st.warning(
                     "That resume looks too short to analyse well. "
                     "Try a fuller PDF, clearer screenshot, or paste more text."
                 )
             else:
-                st.session_state.pending_analysis = {
-                    "resume_text": resume_text,
-                    "target_role": target_role,
-                    "job_description": job_description,
-                }
-                st.session_state.analysis = None
-                st.session_state.analysis_error = None
-                st.rerun()
-        except Exception as exc:
-            st.error(f"Could not read input: {exc}")
+                st.warning("Add a resume via PDF, image, or text first.")
+        else:
+            # Reserve quota before OCR / pipeline so spam cannot bypass spend caps.
+            record_analysis()
+            try:
+                with st.spinner("Reading your documents…"):
+                    resume_text = resolve_source_text(
+                        resume_mode,
+                        resume_file,
+                        resume_paste,
+                        resume_typed,
+                    )
+                    if jd_mode == "Skip":
+                        job_description = ""
+                    else:
+                        job_description = resolve_source_text(
+                            "Image" if jd_mode == "Image" else "Text",
+                            jd_file,
+                            jd_paste,
+                            jd_typed,
+                        )
+                if not resume_text.strip() or len(resume_text.split()) < 40:
+                    st.warning(
+                        "Could not read enough resume text to analyse. "
+                        "Try a clearer PDF/screenshot or paste more text. "
+                        "This attempt used one free analyse slot."
+                    )
+                else:
+                    st.session_state.pending_analysis = {
+                        "resume_text": resume_text,
+                        "target_role": target_role,
+                        "job_description": job_description,
+                        "quota_reserved": True,
+                    }
+                    st.session_state.analysis = None
+                    st.session_state.analysis_error = None
+                    st.rerun()
+            except Exception as exc:
+                st.error(f"Could not read input: {exc}")
 
 st.write("")
 render_html(
@@ -926,6 +971,11 @@ render_html(
 
 pending = st.session_state.pending_analysis
 if pending:
+    # Quota was reserved when Analyse was clicked (covers OCR + pipeline).
+    if not pending.get("quota_reserved") and not can_analyse():
+        st.session_state.pending_analysis = None
+        st.warning("Free analyse limit reached for this browser — API call blocked.")
+        st.rerun()
     try:
         st.session_state.analysis = run_analysis_pipeline(
             resume_text=pending["resume_text"],
@@ -1058,13 +1108,25 @@ if analysis:
                 <div class="resume-preview">{html.escape(preview)}</div>
                 """
             )
-            st.download_button(
-                "Download updated resume (.txt)",
-                data=preview.encode("utf-8"),
-                file_name="updated_resume.txt",
-                mime="text/plain",
-                use_container_width=True,
-            )
+            if can_download_resume():
+                st.download_button(
+                    "Download updated resume (.txt)",
+                    data=preview.encode("utf-8"),
+                    file_name="updated_resume.txt",
+                    mime="text/plain",
+                    use_container_width=True,
+                    key="dl_resume_txt",
+                    on_click=record_resume_download,
+                )
+                st.caption(
+                    f"{resume_downloads_left()} updated-resume download(s) left "
+                    "(shared across .txt and PDF templates)."
+                )
+            else:
+                st.info(
+                    "Free limit: 2 updated-resume downloads used on this browser. "
+                    "You can still explore ATS score, keywords, cover letter, and salary."
+                )
 
     elif view == "templates":
         with st.container(key="templates-panel"):
@@ -1090,18 +1152,30 @@ if analysis:
             )
             template_id = template_names[choice]
             st.session_state.selected_template = template_id
-            try:
-                pdf_bytes = build_resume_pdf(updated, template_id)
-                st.download_button(
-                    f"Download {choice} PDF",
-                    data=pdf_bytes,
-                    file_name=f"resume_{template_id}.pdf",
-                    mime="application/pdf",
-                    type="primary",
-                    use_container_width=True,
+            if not can_download_resume():
+                st.info(
+                    "Free limit: 2 updated-resume downloads used on this browser. "
+                    "Preview stays available; PDF download is locked."
                 )
-            except Exception as exc:
-                st.error(f"Could not build PDF: {exc}")
+            else:
+                try:
+                    pdf_bytes = build_resume_pdf(updated, template_id)
+                    st.download_button(
+                        f"Download {choice} PDF",
+                        data=pdf_bytes,
+                        file_name=f"resume_{template_id}.pdf",
+                        mime="application/pdf",
+                        type="primary",
+                        use_container_width=True,
+                        key=f"dl_resume_pdf_{template_id}",
+                        on_click=record_resume_download,
+                    )
+                    st.caption(
+                        f"{resume_downloads_left()} updated-resume download(s) left "
+                        "(shared across .txt and PDF templates)."
+                    )
+                except Exception as exc:
+                    st.error(f"Could not build PDF: {exc}")
 
     elif view == "cover":
         with st.container(key="cover-panel"):
