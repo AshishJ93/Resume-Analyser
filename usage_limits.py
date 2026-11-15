@@ -178,24 +178,51 @@ def _circle_meter(left: int, limit: int, label: str, kind: str) -> str:
     """
 
 
-def usage_banner_html(usage: dict[str, Any] | None = None) -> str:
+def analyse_usage_html(usage: dict[str, Any] | None = None) -> str:
+    """Analyse quota only — shown under Step 2."""
     usage = _normalize(usage or st.session_state.get("usage"))
     a_left = analyses_left(usage)
-    d_left = resume_downloads_left(usage)
     a_max = max_analyses()
-    d_max = max_resume_downloads()
-    both_empty = a_left <= 0 and d_left <= 0
     note = (
-        '<p class="usage-note is-done">Free explore used up here — results already generated stay visible.</p>'
-        if both_empty
-        else '<p class="usage-note">Free trial on this browser. Each action punches one mark.</p>'
+        '<p class="usage-note is-done">Analyse limit used on this browser.</p>'
+        if a_left <= 0
+        else '<p class="usage-note">Each Analyse run uses one mark on this browser.</p>'
     )
     return f"""
     <div class="usage-banner usage-banner--step" role="status" aria-live="polite">
       <div class="usage-meters">
         {_circle_meter(a_left, a_max, "Analyse", "analyse")}
+      </div>
+      {note}
+    </div>
+    """
+
+
+def download_usage_html(usage: dict[str, Any] | None = None) -> str:
+    """Download quota only — shown in resume/template download tabs."""
+    usage = _normalize(usage or st.session_state.get("usage"))
+    d_left = resume_downloads_left(usage)
+    d_max = max_resume_downloads()
+    used = int(usage.get("resume_downloads") or 0)
+    note = (
+        '<p class="usage-note is-done">Download limit used — preview stays open.</p>'
+        if d_left <= 0
+        else (
+            '<p class="usage-note">Updated-resume downloads left on this browser (.txt and PDF share this).</p>'
+            if used == 0
+            else '<p class="usage-note">Download counted. Marks update after each file.</p>'
+        )
+    )
+    return f"""
+    <div class="usage-banner usage-banner--download" role="status" aria-live="polite">
+      <div class="usage-meters">
         {_circle_meter(d_left, d_max, "Downloads", "downloads")}
       </div>
       {note}
     </div>
     """
+
+
+def usage_banner_html(usage: dict[str, Any] | None = None) -> str:
+    """Backward-compatible alias: Step 2 shows analyse only."""
+    return analyse_usage_html(usage)

@@ -13,12 +13,13 @@ from pypdf import PdfReader
 from pdf_templates import TEMPLATES, build_cover_letter_pdf, build_resume_pdf
 from ui_theme import inject_styles as inject_theme_styles
 from usage_limits import (
+    analyse_usage_html,
     bootstrap_usage,
     can_analyse,
     can_download_resume,
+    download_usage_html,
     record_analysis,
     record_resume_download,
-    usage_banner_html,
 )
 
 load_dotenv()
@@ -879,7 +880,7 @@ with meta_col:
             placeholder="e.g. Senior Product Manager",
             label_visibility="collapsed",
         )
-        render_html(usage_banner_html(usage))
+        render_html(analyse_usage_html(usage))
         analyse_allowed = can_analyse()
         analyze = st.button(
             "Analyse resume",
@@ -1099,6 +1100,7 @@ if analysis:
                 <div class="resume-preview">{html.escape(preview)}</div>
                 """
             )
+            render_html(download_usage_html())
             if can_download_resume():
                 st.download_button(
                     "Download updated resume (.txt)",
@@ -1139,9 +1141,10 @@ if analysis:
             )
             template_id = template_names[choice]
             st.session_state.selected_template = template_id
+            render_html(download_usage_html())
             if not can_download_resume():
                 st.info(
-                    "Free limit: 2 updated-resume downloads used on this browser. "
+                    "Download limit reached on this browser. "
                     "Preview stays available; PDF download is locked."
                 )
             else:

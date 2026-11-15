@@ -127,6 +127,12 @@ section.main,
   border-top: 1px solid rgba(15, 20, 25, 0.08);
 }
 
+.usage-banner--download {
+  margin: 0.75rem 0 0.9rem;
+  padding: 0.7rem 0 0;
+  border-top: 1px solid rgba(15, 20, 25, 0.08);
+}
+
 .usage-meters {
   display: flex;
   flex-wrap: wrap;
