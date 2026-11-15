@@ -771,9 +771,6 @@ render_html(
     Score ATS fit, fill keyword gaps, download templates, and send with confidence.
   </p>
 </section>
-"""
-    + usage_banner_html(usage)
-    + """
 <div class="story-strip">
   <div class="story-beat"><strong>See</strong><span>Match your resume to a real job posting, screenshots included.</span></div>
   <div class="story-beat"><strong>Fit</strong><span>Keywords woven in. Full career history kept.</span></div>
@@ -882,6 +879,7 @@ with meta_col:
             placeholder="e.g. Senior Product Manager",
             label_visibility="collapsed",
         )
+        render_html(usage_banner_html(usage))
         analyse_allowed = can_analyse()
         analyze = st.button(
             "Analyse resume",

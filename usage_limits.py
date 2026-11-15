@@ -151,18 +151,28 @@ def _circle_meter(left: int, limit: int, label: str, kind: str) -> str:
     pct = min(100, round(100 * remaining / safe_limit))
     depleted = remaining <= 0
     state = "is-empty" if depleted else "is-ready"
-    status = "Limit reached" if depleted else f"{remaining} left"
+    status = "All used" if depleted else f"{remaining} left"
+    core = (
+        '<span class="usage-spent" aria-hidden="true">∅</span>'
+        '<span class="sr-only">0</span>'
+        if depleted
+        else f'<span class="usage-count">{remaining}</span>'
+    )
+    slots = "".join(
+        '<span class="usage-slot {cls}"></span>'.format(
+            cls="is-on" if i < remaining else "is-off"
+        )
+        for i in range(safe_limit)
+    )
     return f"""
-    <div class="usage-meter {state}" data-kind="{kind}" title="{label}: {status}">
-      <div class="usage-ring" style="--usage-pct:{pct};">
-        <div class="usage-ring-core">
-          <span class="usage-count">{remaining}</span>
-          <span class="usage-max">/{safe_limit}</span>
-        </div>
+    <div class="usage-meter {state}" data-kind="{kind}" title="{label}: {status} of {safe_limit}">
+      <div class="usage-ring" style="--usage-pct:{pct}; --usage-slots:{safe_limit};">
+        <div class="usage-ring-core">{core}</div>
       </div>
       <div class="usage-meta">
         <span class="usage-label">{label}</span>
         <span class="usage-status">{status}</span>
+        <span class="usage-slots" aria-hidden="true">{slots}</span>
       </div>
     </div>
     """
@@ -176,12 +186,12 @@ def usage_banner_html(usage: dict[str, Any] | None = None) -> str:
     d_max = max_resume_downloads()
     both_empty = a_left <= 0 and d_left <= 0
     note = (
-        '<p class="usage-note is-done">Free explore used up on this browser — you can still view results already generated.</p>'
+        '<p class="usage-note is-done">Free explore used up here — results already generated stay visible.</p>'
         if both_empty
-        else '<p class="usage-note">Small free trial on this browser. Counters drop as you analyse or download.</p>'
+        else '<p class="usage-note">Free trial on this browser. Each action punches one mark.</p>'
     )
     return f"""
-    <div class="usage-banner" role="status" aria-live="polite">
+    <div class="usage-banner usage-banner--step" role="status" aria-live="polite">
       <div class="usage-meters">
         {_circle_meter(a_left, a_max, "Analyse", "analyse")}
         {_circle_meter(d_left, d_max, "Downloads", "downloads")}

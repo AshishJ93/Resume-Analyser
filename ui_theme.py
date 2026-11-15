@@ -114,76 +114,86 @@ section.main,
 .usage-banner {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-  margin: 0 0 1.35rem;
+  gap: 0.55rem;
+  margin: 0.85rem 0 0.35rem;
   padding: 0;
   background: transparent;
   border: 0;
-  animation: rise 0.9s cubic-bezier(.22,1,.36,1) both;
+}
+
+.usage-banner--step {
+  margin-top: 0.95rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(15, 20, 25, 0.08);
 }
 
 .usage-meters {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.85rem 1.35rem;
+  gap: 0.75rem 1.1rem;
 }
 
 .usage-meter {
   display: inline-flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.65rem;
+  min-width: 0;
 }
 
 .usage-ring {
   --usage-pct: 100;
-  width: 52px;
-  height: 52px;
+  position: relative;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
   background: conic-gradient(
     var(--india-green) 0% calc(var(--usage-pct) * 1%),
     rgba(15, 20, 25, 0.08) calc(var(--usage-pct) * 1%) 100%
   );
-  box-shadow: 0 8px 22px rgba(15, 107, 76, 0.12);
-  transition: background 0.35s ease, box-shadow 0.35s ease, transform 0.35s ease;
+  box-shadow: 0 6px 16px rgba(15, 107, 76, 0.10);
+  transition: background 0.35s ease, box-shadow 0.35s ease, opacity 0.35s ease;
 }
 
 .usage-ring-core {
-  width: 40px;
-  height: 40px;
+  position: absolute;
+  inset: 5px;
   border-radius: 50%;
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 0.05rem;
-  background: rgba(255, 255, 255, 0.94);
+  display: grid;
+  place-items: center;
+  background: #f7faf8;
   color: var(--india-navy);
   font-family: "Space Grotesk", sans-serif;
   line-height: 1;
 }
 
 .usage-count {
-  font-size: 1.05rem;
+  display: block;
+  font-size: 1.2rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  text-align: center;
+  transform: translateY(0.5px);
 }
 
-.usage-max {
-  font-size: 0.68rem;
+.usage-spent {
+  display: block;
+  font-size: 1.15rem;
   font-weight: 600;
-  color: var(--muted);
+  color: rgba(15, 20, 25, 0.28);
+  letter-spacing: 0;
 }
 
 .usage-meta {
   display: flex;
   flex-direction: column;
-  gap: 0.12rem;
+  gap: 0.1rem;
+  min-width: 0;
 }
 
 .usage-label {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -191,40 +201,86 @@ section.main,
 }
 
 .usage-status {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: var(--muted);
+}
+
+.usage-slots {
+  display: flex;
+  gap: 4px;
+  margin-top: 0.18rem;
+}
+
+.usage-slot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(15, 107, 76, 0.35);
+  background: transparent;
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+
+.usage-slot.is-on {
+  background: var(--india-green);
+  border-color: var(--india-green);
+}
+
+.usage-slot.is-off {
+  background: transparent;
+  border-color: rgba(15, 20, 25, 0.18);
+  border-style: dashed;
 }
 
 .usage-note {
   margin: 0;
-  max-width: 36rem;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   line-height: 1.4;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Exhausted: punched ticket — dashed ghost ring + empty marks, not a red disc */
 .usage-meter.is-empty .usage-ring {
-  background: conic-gradient(
-    rgba(168, 72, 72, 0.55) 0% 100%
-  );
-  box-shadow: 0 8px 20px rgba(168, 72, 72, 0.12);
+  background: transparent;
+  border: 1.5px dashed rgba(15, 20, 25, 0.22);
+  box-shadow: none;
+  opacity: 0.92;
 }
 
 .usage-meter.is-empty .usage-ring-core {
-  color: var(--bad);
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(15, 20, 25, 0.04);
 }
 
 .usage-meter.is-empty .usage-label {
-  color: var(--bad);
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(15, 20, 25, 0.28);
 }
 
 .usage-meter.is-empty .usage-status {
-  color: #9a4a4a;
-  font-weight: 600;
+  color: var(--saffron);
+  font-weight: 650;
+}
+
+.usage-meter.is-empty .usage-slot.is-off {
+  border-color: rgba(224, 122, 47, 0.45);
 }
 
 .usage-note.is-done {
-  color: #9a4a4a;
+  color: #9a5a22;
   font-weight: 600;
 }
 
