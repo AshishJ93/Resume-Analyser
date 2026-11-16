@@ -774,7 +774,7 @@ section.main,
 }
 .stApp,
 [data-testid="stAppViewContainer"] {
-  background: #090c0b !important;
+  background: transparent !important;
 }
 </style>
 """
