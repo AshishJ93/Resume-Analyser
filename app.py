@@ -727,6 +727,79 @@ def render_insight_rows(items: list, kind: str) -> str:
     return "".join(rows) or '<p class="empty-note">No items returned.</p>'
 
 
+LAUNCH_APP_URL = "https://resumefit-analyser.streamlit.app"
+LAUNCH_APP_HREF = "?view=app"
+
+STREAMLIT_LAUNCH_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,560;1,9..144,500&family=Outfit:wght@300;400;500;600&display=swap');
+[data-testid="stHeader"],
+[data-testid="stToolbar"],
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"],
+#MainMenu,
+[data-testid="stFooter"] {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+}
+html, body, #root, [data-testid="stScreencast"] {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewContainer"] > div,
+[data-testid="stMain"],
+section.main,
+[data-testid="stMainBlockContainer"],
+.block-container,
+[data-testid="stVerticalBlock"],
+[data-testid="stHtml"],
+[data-testid="stHtml"] > div {
+  position: relative !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  gap: 0 !important;
+  inset: auto !important;
+  flex: none !important;
+  display: block !important;
+}
+.stApp,
+[data-testid="stAppViewContainer"] {
+  background: #090c0b !important;
+}
+</style>
+"""
+
+
+def render_launch_site() -> None:
+    """Full-bleed product film. Open the app stays inside this Streamlit deploy."""
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent / "site" / "index.html"
+    raw = path.read_text(encoding="utf-8")
+    raw = raw.replace(LAUNCH_APP_URL, LAUNCH_APP_HREF)
+    raw = raw.replace(' target="_blank"', "")
+    raw = raw.replace(' rel="noopener noreferrer"', "")
+    style = re.search(r"<style>(.*)</style>", raw, re.DOTALL)
+    body = re.search(r"<body[^>]*>(.*)</body>", raw, re.DOTALL)
+    if not style or not body:
+        st.error("The launch page could not be read.")
+        return
+    st.html(
+        STREAMLIT_LAUNCH_CSS + f"<style>{style.group(1)}</style>" + body.group(1),
+        unsafe_allow_javascript=True,
+    )
+
+
 def render_keywords(keywords: list) -> str:
     if not keywords:
         return '<p class="empty-note">No missing keywords flagged.</p>'
@@ -742,6 +815,10 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
+if st.query_params.get("view") != "app":
+    render_launch_site()
+    st.stop()
 
 for key, default in {
     "analysis": None,
